@@ -26,6 +26,11 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "entry_short"   {col+=strlen(yytext); return ENTRYSHORT; }
 "exit_long"     {col+=strlen(yytext); return EXITLONG; }
 "exit_short"    {col+=strlen(yytext); return EXITSHORT; }
+"open"          {col+=strlen(yytext); return OPEN; }
+"close"         {col+=strlen(yytext); return CLOSE; }
+"high"          {col+=strlen(yytext); return HIGH; }
+"low"           {col+=strlen(yytext); return LOW; }
+"volume"        {col+=strlen(yytext); return VOLUME; }
 "for"           {col+=strlen(yytext); return FOR; }
 "while"         {col+=strlen(yytext); return WHILE; }
 "if"            {col+=strlen(yytext); return IF; }
