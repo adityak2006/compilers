@@ -41,6 +41,11 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "ranging"            {col+=strlen(yytext); return RANGING; }
 "lookback"           {col+=strlen(yytext); return LOOKBACK; }
 "rolling_beta"       {col+=strlen(yytext); return ROLLING_BETA; }
+"position_shares"    {col+=strlen(yytext); return POSITION_SHARES; }
+"entry_price"        {col+=strlen(yytext); return ENTRY_PRICE; }
+"days_in_position"   {col+=strlen(yytext); return DAYS_IN_POSITION; }
+"portfolio_value"    {col+=strlen(yytext); return PORTFOLIO_VALUE; }
+"cash_available"     {col+=strlen(yytext); return CASH_AVAILABLE; }
 "SMA"                {col+=strlen(yytext); return SMA; }
 "EMA"                {col+=strlen(yytext); return EMA; }
 "RSI"                {col+=strlen(yytext); return RSI; }
