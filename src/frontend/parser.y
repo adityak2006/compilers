@@ -2,7 +2,7 @@
 %token ENTRYLONG ENTRYSHORT EXITLONG EXITSHORT OPEN CLOSE HIGH LOW VOLUME TIMESERIES ARRAY
 %token CROSSES_ABOVE RISK_MANAGE TRENDING RANGING LOOKBACK ROLLING_BETA POSITION_SHARES
 %token ENTRY_PRICE DAYS_IN_POSITION PORTFOLIO_VALUE CASH_AVAILABLE RGM
-%token SMA EMA RSI BB ATR STDEV MAX MIN SUM MEDIAN AVG ABS CORRELATION SLOPE RSQUARED
+%token SMA EMA RSI BB ATR SDV MAX MIN SUM MEDIAN AVG ABS CORRELATION SLOPE RSQUARED
 
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 %token AND_ASSIGN OR_ASSIGN XOR_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN
@@ -26,15 +26,26 @@
 
 %%
 
+signal_function
+    : 
+	| signal_function IDENTIFIER '::' signal_function_name compound_statement
+	;
+
+signal_function_name
+    : ENTRYLONG
+    | ENTRYSHORT
+    | EXITLONG
+    | EXITSHORT
+    ;
+
 strategy_definition
-    : STRATEGY IDENTIFIER '{' strategy_item_list Indicator Regimes '}' 
+    : STRATEGY IDENTIFIER '{' strategy_item_list Indicator Regimes signal_function '}' 
 	;
 
 strategy_item_list
 	: assignment
 	| strategy_item_list assignment
 	;
-
 
 lhs
     : SYMBOL
@@ -69,6 +80,18 @@ postfix_expression
 	: primary_expression
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
+	| SMA '(' expression ',' expression ')'
+    | EMA '(' expression ',' expression ')' 
+    | RSI '(' expression ',' expression ')'
+    | BB '(' expression ',' expression ')'
+	| ATR '(' expression ',' expression ')'
+	| SDV '(' expression ')' 
+    | MAX '(' expression ')'
+	| MIN '(' expression ')'
+	| SUM '(' expression ')'
+	| MEDIAN '(' expression ')'
+	| AVG '(' expression ')'
+	| ABS '(' expression ')'
 	| postfix_expression '(' argument_expression_list ')'
 	| postfix_expression '.' IDENTIFIER
 	| postfix_expression INC_OP
