@@ -26,48 +26,49 @@
 
 %%
 
-signal_function
-    : 
-	| signal_function IDENTIFIER '::' signal_function_name compound_statement
-	;
-
-signal_function_name
-    : ENTRYLONG
-    | ENTRYSHORT
-    | EXITLONG
-    | EXITSHORT
+strategy_definition
+    : STRATEGY IDENTIFIER '{' strategy_body '}'
     ;
 
-strategy_definition
-    : STRATEGY IDENTIFIER '{' strategy_item_list Indicator Regimes signal_function '}' 
-	;
+strategy_body
+    : strategy_declarations indicator_section regime_section signal_function_list
+    ;
 
-strategy_item_list
-	: assignment
-	| strategy_item_list assignment
-	;
+strategy_declarations
+    : SYMBOL '=' STRINGLIT ';' TIMEFRAME '=' '{'INT ',' INT',' INT '}' ';' P_SIZE '=' INT ';'
+    ;
 
-lhs
-    : SYMBOL
-    | TIMEFRAME
-    | P_SIZE
-    | ENTRY_PRICE
-    | PORTFOLIO_VALUE
-    | CASH_AVAILABLE
+indicator_section
+    : INDICATORS compound_statement
+    ;
+
+regime_section
+    : REGIMES compound_statement
+    ;
+
+signal_function_list
+    :
+    | signal_function_list signal_function
+    ;
+
+signal_function
+    : IDENTIFIER '::' ENTRYLONG compound_statement
+    | IDENTIFIER '::' ENTRYSHORT compound_statement
+    | IDENTIFIER '::' EXITLONG compound_statement
+    | IDENTIFIER '::' EXITSHORT compound_statement
+	| ENTRYLONG compound_statement
+    | ENTRYSHORT compound_statement
+    | EXITLONG compound_statement
+    | EXITSHORT compound_statement
     ;
 
 assignment
-    : lhs '=' initializer ';'
+    : lhs '=' expression
     ;
 
-
-Indicator
-	: INDICATORS '{' function_definition '}' ;
-
-Regimes
-	: /* empty */
-	| REGIMES '{' function_definition '}'
-	;
+lhs
+    : IDENTIFIER
+    ;
 
 primary_expression
 	: IDENTIFIER
@@ -452,19 +453,3 @@ char *s;
 	fflush(stdout);
 	printf("\n%*s\n%*s\n", col, "^", col, s);
 }
-
-/*
-example code:
-
-strategy s_id
-{
-	symbol = "AAPL"; // stock symbol (string)
-	timeframe = {DD, HH, MM}; // daily, hourly, minute (all are integers)
-	p_size = 10000; // portfolio size
-
-	indicators
-	{
-		// define indicators here (e.g., moving averages, RSI, etc.)
-	}
-}
-*/
