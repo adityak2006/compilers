@@ -1,26 +1,29 @@
-%token STRATEGY SYMBOL TIMEFRAME P_SIZE INDICATORS REGIMES REGIME FUNC REF GROUP
-%token ENTRYLONG ENTRYSHORT EXITLONG EXITSHORT OPEN CLOSE HIGH LOW VOLUME TIMESERIES ARRAY
-%token CROSSES_ABOVE RISK_MANAGE TRENDING RANGING LOOKBACK ROLLING_BETA POSITION_SHARES
-%token ENTRY_PRICE DAYS_IN_POSITION PORTFOLIO_VALUE CASH_AVAILABLE RGM
+%union {
+    int intVal;
+    float floatVal;
+    char *id;
+}
+
+%token STRATEGY SYMBOL TIMEFRAME P_SIZE INDICATORS REGIMES 
+%token FUN REF SCOPE ARROW
+%token ENTRYLONG ENTRYSHORT EXITLONG EXITSHORT
+%token OPEN CLOSE HIGH LOW VOLUME
+%token POSITION_SHARES ENTRY_PRICE DAYS_IN_POSITION PORTFOLIO_VALUE CASH_AVAILABLE
 %token SMA EMA RSI BB ATR SDV MAX MIN SUM MEDIAN AVG ABS CORRELATION SLOPE RSQUARED
+%token GROUP 
 
-%token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
-%token AND_ASSIGN OR_ASSIGN XOR_ASSIGN LEFT_ASSIGN RIGHT_ASSIGN
-%token LEFT_OP RIGHT_OP
-%token CONST
-%token STRUCT UNION ENUM
-%token ELLIPSIS
+%token FOR WHILE IF ELSE CONTINUE BREAK RETURN
 
-%token FOR WHILE IF ELSEIF ELSE CONTINUE BREAK RETURN
+%token INT FLOAT BOOL VOID STRING RGM CONST TIMESERIES
 
-%token INT FLOAT BOOL VOID STRING
+%token AND OR LEFT_OP RIGHT_OP LEQ GEQ EQ NEQ
 
-%token AND OR NOT XOR
-%token INC_OP DEC_OP
-%token LEQ GEQ EQ NEQ
-%token IDENTIFIER INTEGERLIT FLOATLIT STRINGLIT
+%token <id> IDENTIFIER STRINGLIT
+%token <intVal> INTLIT
+%token <floatVal> FLOATLIT 
 
-%token SCOPE
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
 %start translation_unit
 
@@ -35,15 +38,17 @@ strategy_body
     ;
 
 strategy_declarations
-    : SYMBOL '=' STRINGLIT ';' TIMEFRAME '=' '{'INT ',' INT',' INT '}' ';' P_SIZE '=' INT ';'
+    : SYMBOL '=' STRINGLIT ';' TIMEFRAME '=' '{'INTLIT ',' INTLIT',' INTLIT '}' ';' P_SIZE '=' INTLIT ';'
     ;
 
 indicator_section
-    : INDICATORS compound_statement
+    :
+	| INDICATORS compound_statement
     ;
 
 regime_section
-    : REGIMES compound_statement
+    :
+	| REGIMES compound_statement
     ;
 
 signal_function_list
@@ -52,51 +57,78 @@ signal_function_list
     ;
 
 signal_function
-    : IDENTIFIER '::' ENTRYLONG compound_statement
-    | IDENTIFIER '::' ENTRYSHORT compound_statement
-    | IDENTIFIER '::' EXITLONG compound_statement
-    | IDENTIFIER '::' EXITSHORT compound_statement
+    : IDENTIFIER SCOPE ENTRYLONG compound_statement
+    | IDENTIFIER SCOPE ENTRYSHORT compound_statement
+    | IDENTIFIER SCOPE EXITLONG compound_statement
+    | IDENTIFIER SCOPE EXITSHORT compound_statement
 	| ENTRYLONG compound_statement
     | ENTRYSHORT compound_statement
     | EXITLONG compound_statement
     | EXITSHORT compound_statement
     ;
 
-assignment
-    : lhs '=' expression
-    ;
-
-lhs
-    : IDENTIFIER
-    ;
-
 primary_expression
 	: IDENTIFIER
-	| CONST
+	| INTLIT
+	| FLOATLIT
 	| STRINGLIT
 	| '(' expression ')'
+	| timeseries_expression
+	;
+
+timeseries
+    : CLOSE
+    | OPEN
+    | HIGH
+    | LOW
+    | VOLUME
+    | SMA '(' timeseries ',' INTLIT ')'
+    | EMA '(' timeseries ',' INTLIT ')'
+    | RSI '(' timeseries ',' INTLIT ')'
+    | BB '(' timeseries ',' INTLIT ',' FLOATLIT ')'
+    | ATR '(' timeseries ',' timeseries ',' timeseries ',' INTLIT ')'
+    | SDV '(' timeseries ',' INTLIT ')'
+    | MAX '(' timeseries ',' INTLIT ')'
+    | MIN '(' timeseries ',' INTLIT ')'
+    | SUM '(' timeseries ',' INTLIT ')'
+    | MEDIAN '(' timeseries ',' INTLIT ')'
+    | AVG '(' timeseries ',' INTLIT ')'
+    | ABS '(' timeseries ',' INTLIT ')'
+    | CORRELATION '(' timeseries ',' timeseries ',' INTLIT ')'
+    | SLOPE '(' timeseries ',' INTLIT ')'
+    | RSQUARED '(' timeseries ',' INTLIT ')'
+    ;
+
+timeseries_expression
+	: timeseries
+    | SMA '(' IDENTIFIER ',' INTLIT ')'
+    | EMA '(' IDENTIFIER ',' INTLIT ')'
+    | RSI '(' IDENTIFIER ',' INTLIT ')'
+    | BB '(' IDENTIFIER ',' INTLIT ',' FLOATLIT ')'
+    | ATR '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')'
+    | SDV '(' IDENTIFIER ',' INTLIT ')'
+    | MAX '(' IDENTIFIER ',' INTLIT ')'
+    | MIN '(' IDENTIFIER ',' INTLIT ')'
+    | SUM '(' IDENTIFIER ',' INTLIT ')'
+    | MEDIAN '(' IDENTIFIER ',' INTLIT ')'
+    | AVG '(' IDENTIFIER ',' INTLIT ')'
+    | ABS '(' IDENTIFIER ',' INTLIT ')'
+    | CORRELATION '(' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')'
+    | SLOPE '(' IDENTIFIER ',' INTLIT ')'
+    | RSQUARED '(' IDENTIFIER ',' INTLIT ')'
 	;
 
 postfix_expression
 	: primary_expression
 	| postfix_expression '[' expression ']'
 	| postfix_expression '(' ')'
-	| SMA '(' expression ',' expression ')'
-    | EMA '(' expression ',' expression ')' 
-    | RSI '(' expression ',' expression ')'
-    | BB '(' expression ',' expression ')'
-	| ATR '(' expression ',' expression ')'
-	| SDV '(' expression ')' 
-    | MAX '(' expression ')'
-	| MIN '(' expression ')'
-	| SUM '(' expression ')'
-	| MEDIAN '(' expression ')'
-	| AVG '(' expression ')'
-	| ABS '(' expression ')'
 	| postfix_expression '(' argument_expression_list ')'
 	| postfix_expression '.' IDENTIFIER
-	| postfix_expression INC_OP
-	| postfix_expression DEC_OP
+	| PORTFOLIO_VALUE
+	| CASH_AVAILABLE
+	| POSITION_SHARES
+	| ENTRY_PRICE
+	| DAYS_IN_POSITION
 	;
 
 argument_expression_list
@@ -106,14 +138,11 @@ argument_expression_list
 
 unary_expression
 	: postfix_expression
-	| INC_OP unary_expression
-	| DEC_OP unary_expression
 	| unary_operator cast_expression
 	;
 
 unary_operator
-	: '&'
-	| '*'
+	: REF
 	| '+'
 	| '-'
 	| '~'
@@ -190,30 +219,12 @@ conditional_expression
 
 assignment_expression
 	: conditional_expression
-	| unary_expression assignment_operator assignment_expression
-	;
-
-assignment_operator
-	: '='
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
+	| unary_expression '=' assignment_expression
 	;
 
 expression
 	: assignment_expression
 	| expression ',' assignment_expression
-	;
-
-constant_expression
-	: conditional_expression
 	;
 
 declaration
@@ -232,35 +243,26 @@ init_declarator_list
 	;
 
 init_declarator
-	: declarator
-	| declarator '=' initializer
+	: direct_declarator
+	| direct_declarator '=' initializer
 	;
 
 
 type_specifier
 	: VOID
-	/* | CHAR */
 	| INT
-	/* | LONG */
 	| FLOAT
     | BOOL
     | STRING
 	| RGM
-	/* | SIGNED */
-	/* | UNSIGNED */
-	| struct_or_union_specifier
-	| enum_specifier
+	| TIMESERIES
+	| group_specifier
 	;
 
-struct_or_union_specifier
-	: struct_or_union IDENTIFIER '{' struct_declaration_list '}'
-	| struct_or_union '{' struct_declaration_list '}'
-	| struct_or_union IDENTIFIER
-	;
-
-struct_or_union
-	: STRUCT
-	| UNION
+group_specifier
+	: GROUP IDENTIFIER '{' struct_declaration_list '}'
+	| GROUP '{' struct_declaration_list '}'
+	| GROUP IDENTIFIER
 	;
 
 struct_declaration_list
@@ -285,47 +287,19 @@ struct_declarator_list
 	;
 
 struct_declarator
-	: declarator
-	| ':' constant_expression
-	| declarator ':' constant_expression
-	;
-
-enum_specifier
-	: ENUM '{' enumerator_list '}'
-	| ENUM IDENTIFIER '{' enumerator_list '}'
-	| ENUM IDENTIFIER
-	;
-
-enumerator_list
-	: enumerator
-	| enumerator_list ',' enumerator
-	;
-
-enumerator
-	: IDENTIFIER
-	| IDENTIFIER '=' constant_expression
-	;
-
-	;
-
-declarator
 	: direct_declarator
+	| ':' conditional_expression
+	| direct_declarator ':' conditional_expression
 	;
 
 direct_declarator
 	: IDENTIFIER
-	| '(' declarator ')'
-	| direct_declarator '[' constant_expression ']'
+	| '(' direct_declarator ')'
+	| direct_declarator '[' conditional_expression ']'
 	| direct_declarator '[' ']'
-	| direct_declarator '(' parameter_type_list ')'
+	| direct_declarator '(' parameter_list ')'
 	| direct_declarator '(' identifier_list ')'
 	| direct_declarator '(' ')'
-	;
-
-
-parameter_type_list
-	: parameter_list
-	| parameter_list ',' ELLIPSIS
 	;
 
 parameter_list
@@ -334,8 +308,8 @@ parameter_list
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
+	: declaration_specifiers direct_declarator
+	| declaration_specifiers direct_abstract_declarator
 	| declaration_specifiers
 	;
 
@@ -346,23 +320,19 @@ identifier_list
 
 type_name
 	: specifier_qualifier_list
-	| specifier_qualifier_list abstract_declarator
-	;
-
-abstract_declarator
-	: direct_abstract_declarator
+	| specifier_qualifier_list direct_abstract_declarator
 	;
 
 direct_abstract_declarator
-	: '(' abstract_declarator ')'
+	: '(' direct_abstract_declarator ')'
 	| '[' ']'
-	| '[' constant_expression ']'
+	| '[' conditional_expression ']'
 	| direct_abstract_declarator '[' ']'
-	| direct_abstract_declarator '[' constant_expression ']'
+	| direct_abstract_declarator '[' conditional_expression ']'
 	| '(' ')'
-	| '(' parameter_type_list ')'
+	| '(' parameter_list ')'
 	| direct_abstract_declarator '(' ')'
-	| direct_abstract_declarator '(' parameter_type_list ')'
+	| direct_abstract_declarator '(' parameter_list ')'
 	;
 
 initializer
@@ -407,9 +377,9 @@ expression_statement
 	;
 
 selection_statement
-	: IF '(' expression ')' statement
-	| IF '(' expression ')' statement ELSE statement
-	;
+    : IF '(' expression ')' statement %prec LOWER_THAN_ELSE
+    | IF '(' expression ')' statement ELSE statement
+    ;
 
 iteration_statement
 	: WHILE '(' expression ')' statement
@@ -432,24 +402,40 @@ translation_unit
 external_declaration
 	: function_definition
 	| declaration
+	| strategy_definition
 	;
 
 function_definition
-	: declaration_specifiers declarator declaration_list compound_statement
-	| declaration_specifiers declarator compound_statement
-	| declarator declaration_list compound_statement
-	| declarator compound_statement
+	: FUN IDENTIFIER '(' ARROW type_specifier ')' compound_statement
+	| FUN IDENTIFIER '(' parameter_list ARROW type_specifier ')' compound_statement
 	;
 
 %%
 #include <stdio.h>
+#include <stdlib.h>
 
-extern char yytext[];
+extern FILE *yyin;
 extern int col;
+int yyparse(void);
+extern int yylineno;
+extern char *yytext;
 
-yyerror(s)
-char *s;
-{
-	fflush(stdout);
-	printf("\n%*s\n%*s\n", col, "^", col, s);
+void yyerror(const char *s) {
+    fprintf(stderr, "\nError: %s at line %d, column %d, near '%s'\n", s, yylineno, col - 1, yytext);
+}
+
+int main() {
+    yyin = fopen("input.c", "r");
+    if (!yyin) {
+        perror("input.txt");
+        return 1;
+    }
+
+    if (yyparse() == 0)
+        printf("Parse successful.\n");
+    else
+        printf("Parse failed.\n");
+
+    fclose(yyin);
+    return 0;
 }
