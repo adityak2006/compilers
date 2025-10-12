@@ -1,3 +1,17 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+
+extern FILE *yyin;
+extern int col;
+int yyparse(void);
+int yylex();
+void yyerror(const char* s);
+extern int yylineno;
+extern char *yytext;
+%}
+
+
 %union {
     int intVal;
     float floatVal;
@@ -260,18 +274,18 @@ type_specifier
 	;
 
 group_specifier
-	: GROUP IDENTIFIER '{' struct_declaration_list '}'
-	| GROUP '{' struct_declaration_list '}'
+	: GROUP IDENTIFIER '{' group_declaration_list '}'
+	| GROUP '{' group_declaration_list '}'
 	| GROUP IDENTIFIER
 	;
 
-struct_declaration_list
-	: struct_declaration
-	| struct_declaration_list struct_declaration
+group_declaration_list
+	: group_declaration
+	| group_declaration_list group_declaration
 	;
 
-struct_declaration
-	: specifier_qualifier_list struct_declarator_list ';'
+group_declaration
+	: specifier_qualifier_list group_declarator_list ';'
 	;
 
 specifier_qualifier_list
@@ -281,12 +295,12 @@ specifier_qualifier_list
 	| CONST
 	;
 
-struct_declarator_list
-	: struct_declarator
-	| struct_declarator_list ',' struct_declarator
+group_declarator_list
+	: group_declarator
+	| group_declarator_list ',' group_declarator
 	;
 
-struct_declarator
+group_declarator
 	: direct_declarator
 	| ':' conditional_expression
 	| direct_declarator ':' conditional_expression
@@ -411,14 +425,7 @@ function_definition
 	;
 
 %%
-#include <stdio.h>
-#include <stdlib.h>
 
-extern FILE *yyin;
-extern int col;
-int yyparse(void);
-extern int yylineno;
-extern char *yytext;
 
 void yyerror(const char *s) {
     fprintf(stderr, "\nError: %s at line %d, column %d, near '%s'\n", s, yylineno, col - 1, yytext);
