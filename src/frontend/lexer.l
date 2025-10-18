@@ -1,7 +1,7 @@
 %{
-#include "y.tab.h"
-#include <string.h>
-#include <stdlib.h>
+#include <iostream>
+#include <string>
+#include "parser.tab.h"
 int col = 1;
 %}
 
@@ -73,7 +73,7 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "break"              {col+=strlen(yytext); return BREAK; }
 "return"             {col+=strlen(yytext); return RETURN; }
 "const"              {col+=strlen(yytext); return CONST; }
-{identifier}         {col+=strlen(yytext); yylval.id = strdup(yytext); return IDENTIFIER;}
+{identifier}         {col+=strlen(yytext); yylval.id = new std::string(yytext); return IDENTIFIER;}
 {integer}            {col+=strlen(yytext); yylval.intVal = atoi(yytext); return INTLIT;}
 ([0-9]+(\.[0-9]+)?)([eE][+-]?[0-9]+)? {col+=strlen(yytext); yylval.floatVal = atof(yytext); return FLOATLIT;}
 "+"                  {col+=strlen(yytext); return '+';}
@@ -102,7 +102,7 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "&"                  {col+=strlen(yytext); return '&';}
 "|"                  {col+=strlen(yytext); return '|';}
 "->"                 {col+=strlen(yytext); return ARROW;}
-\"[^\"]*\"           {col+=strlen(yytext); yylval.id = strdup(yytext); return STRINGLIT;}
+\"[^\"]*\"           {col+=strlen(yytext); yylval.id = new std::string(yytext); return STRINGLIT;}
 [ \t]                {col+=strlen(yytext);}
 \n                   {col=1;}
 .                    {printf("Unexpected token in line %d at column %d : %s\n",yylineno,col,yytext);}

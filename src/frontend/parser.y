@@ -1,6 +1,11 @@
+%code requires{
+	#include "ast.h"
+}
+
 %{
-#include <stdio.h>
-#include <stdlib.h>
+#include <iostream>
+#include <string>
+#include "ast.h"
 
 extern FILE *yyin;
 extern int col;
@@ -9,13 +14,35 @@ int yylex();
 void yyerror(const char* s);
 extern int yylineno;
 extern char *yytext;
+
+ast::ProgramNode* progRoot;
 %}
 
 
 %union {
+	ast::ProgramNode* prog;
+	ast::ASTNode* node;
+	ast::ExprNode* expr;
+	ast::StmtNode* stmt;
+	ast::FuncNode* func;
+	ast::DeclNode* decl;
+	ast::ParamNode* param;
+	ast::Declarator* declarator;
+	ast::CmpdStmtNode* cmpdStmt;
+	ast::TypeNode* type;
+	ast::InitDeclarator* initDecl;
+	ast::GroupNode* group;
+	ast::StrategyNode* strategy;
+	ast::StratDeclNode* strategyDecl;
+	ast::IndicatorNode* indicator;
+	ast::RegimeNode* regime;
+	ast::SignalFuncNode* signalFunc;
+	ast::GroupDeclaration* groupDeclaration;
+	ast::GroupDeclarator* groupDeclarator;
+	ast::SignalFuncListNode* sigFuncList;
     int intVal;
     float floatVal;
-    char *id;
+    std::string* id;
 }
 
 %token STRATEGY SYMBOL TIMEFRAME P_SIZE INDICATORS REGIMES 
@@ -36,6 +63,16 @@ extern char *yytext;
 %token <intVal> INTLIT
 %token <floatVal> FLOATLIT 
 
+%type <prog> translation_unit
+%type <strategy> strategy_definition strategy_body
+%type <strategyDecl> strategy_declarations
+%type <indicator> indicator_section
+%type <regime> regime_section
+%type <signalFunc> signal_function
+%type <sigFuncList> signal_function_list
+%type <cmpdStmt> compound_statement
+%type <node> external_declaration
+
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
@@ -44,51 +81,118 @@ extern char *yytext;
 %%
 
 strategy_definition
-    : STRATEGY IDENTIFIER '{' strategy_body '}'
+    : STRATEGY IDENTIFIER '{' strategy_body '}' {
+		$$ = new ast::StrategyNode();
+		$$->id = *$2;
+		if($4){
+			$$->declarations = $4->declarations;
+			$$->indicators = $4->indicators;
+            $$->regimes = $4->regimes;
+            $$->signals = $4->signals;
+		}
+	}
     ;
 
 strategy_body
-    : strategy_declarations indicator_section regime_section signal_function_list
+    : strategy_declarations indicator_section regime_section signal_function_list {
+		$$ = new ast::StrategyNode();
+		$$->declarations = $1;
+        $$->indicators = $2;
+        $$->regimes = $3;
+        $$->signals = $4;
+	}
     ;
 
 strategy_declarations
-    : SYMBOL '=' STRINGLIT ';' TIMEFRAME '=' '{'INTLIT ',' INTLIT',' INTLIT '}' ';' P_SIZE '=' INTLIT ';'
+    : SYMBOL '=' STRINGLIT ';' TIMEFRAME '=' '{'INTLIT ',' INTLIT',' INTLIT '}' ';' P_SIZE '=' INTLIT ';' {
+		$$ = new ast::StratDeclNode();
+		$$->symbol = *$3;
+		$$->timeframe.push_back($8);
+        $$->timeframe.push_back($10);
+        $$->timeframe.push_back($12);
+        $$->positionSize = $17;
+	}
     ;
 
 indicator_section
-    :
-	| INDICATORS compound_statement
+    : {$$ = NULL;}
+	| INDICATORS compound_statement {
+		$$ = new ast::IndicatorNode();
+        $$->body = $2;
+	}
     ;
 
 regime_section
-    :
-	| REGIMES compound_statement
+    : {$$ = NULL;}
+	| REGIMES compound_statement {
+		$$ = new ast::RegimeNode();
+        $$->body = $2;
+	}
     ;
 
 signal_function_list
-    :
-    | signal_function_list signal_function
+    :  { $$ = new ast::SignalFuncListNode(); }
+    | signal_function_list signal_function {
+        $$ = $1;
+        if ($2) $$->signals.push_back($2);
+    }
     ;
 
 signal_function
-    : IDENTIFIER SCOPE ENTRYLONG compound_statement
-    | IDENTIFIER SCOPE ENTRYSHORT compound_statement
-    | IDENTIFIER SCOPE EXITLONG compound_statement
-    | IDENTIFIER SCOPE EXITSHORT compound_statement
-	| ENTRYLONG compound_statement
-    | ENTRYSHORT compound_statement
-    | EXITLONG compound_statement
-    | EXITSHORT compound_statement
+    : IDENTIFIER SCOPE ENTRYLONG compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->regimeId = *$1;
+        $$->signalType = ast::SIGNAL_ENTRY_LONG;
+        $$->body = $4;
+    }
+    | IDENTIFIER SCOPE ENTRYSHORT compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->regimeId = *$1;
+        $$->signalType = ast::SIGNAL_ENTRY_SHORT;
+        $$->body = $4;
+    }
+    | IDENTIFIER SCOPE EXITLONG compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->regimeId = *$1;
+        $$->signalType = ast::SIGNAL_EXIT_LONG;
+        $$->body = $4;
+    }
+    | IDENTIFIER SCOPE EXITSHORT compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->regimeId = *$1;
+        $$->signalType = ast::SIGNAL_EXIT_SHORT;
+        $$->body = $4;
+    }
+    | ENTRYLONG compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->signalType = ast::SIGNAL_ENTRY_LONG;
+        $$->body = $2;
+    }
+    | ENTRYSHORT compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->signalType = ast::SIGNAL_ENTRY_SHORT;
+        $$->body = $2;
+    }
+    | EXITLONG compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->signalType = ast::SIGNAL_EXIT_LONG;
+        $$->body = $2;
+    }
+    | EXITSHORT compound_statement {
+        $$ = new ast::SignalFuncNode();
+        $$->signalType = ast::SIGNAL_EXIT_SHORT;
+        $$->body = $2;
+    }
     ;
 
 primary_expression
-	: IDENTIFIER
-	| INTLIT
-	| FLOATLIT
-	| STRINGLIT
-	| '(' expression ')'
-	| timeseries_expression
-	;
+    : IDENTIFIER 
+    | INTLIT 
+    | FLOATLIT 
+    | STRINGLIT 
+    | '(' expression ')' 
+    | timeseries_expression
+    ;
 
 timeseries
     : CLOSE
@@ -369,10 +473,18 @@ statement
 	;
 
 compound_statement
-	: '{' '}'
-	| '{' statement_list '}'
-	| '{' declaration_list '}'
-	| '{' declaration_list statement_list '}'
+	: '{' '}' {
+		$$ = new ast::CmpdStmtNode();
+	}
+	| '{' statement_list '}' {
+		$$ = new ast::CmpdStmtNode();
+	}
+	| '{' declaration_list '}' {
+		$$ = new ast::CmpdStmtNode();
+	}
+	| '{' declaration_list statement_list '}' {
+		$$ = new ast::CmpdStmtNode();
+	}
 	;
 
 declaration_list
@@ -409,15 +521,42 @@ jump_statement
 	;
 
 translation_unit
-	: external_declaration
-	| translation_unit external_declaration
-	;
+    : external_declaration {
+        $$ = new ast::ProgramNode();
+        ast::ASTNode* node = $1;
+        if(node->nodeType == ast::ASTNodeType::FuncNode)
+            $$->functions.push_back((ast::FuncNode*)node);
+        else if(node->nodeType == ast::ASTNodeType::DeclNode)
+            $$->globalDeclarations.push_back((ast::DeclNode*)node);
+        else if(node->nodeType == ast::ASTNodeType::StrategyNode)
+            $$->strategies.push_back((ast::StrategyNode*)node);
 
+		progRoot = $$;
+    }
+    | translation_unit external_declaration {
+        $$ = $1;
+        ast::ASTNode* node = $2;
+        if(node->nodeType == ast::ASTNodeType::FuncNode)
+            $$->functions.push_back((ast::FuncNode*)node);
+        else if(node->nodeType == ast::ASTNodeType::DeclNode)
+            $$->globalDeclarations.push_back((ast::DeclNode*)node);
+        else if(node->nodeType == ast::ASTNodeType::StrategyNode)
+            $$->strategies.push_back((ast::StrategyNode*)node);
+		
+		progRoot = $$;
+    }
+;
 external_declaration
-	: function_definition
-	| declaration
-	| strategy_definition
-	;
+    : function_definition {
+        $$ = new ast::ASTNode();
+    }
+    | declaration {
+        $$ = new ast::ASTNode();
+    }
+    | strategy_definition {
+        $$ = (ast::ASTNode*)$1;
+    }
+    ;
 
 function_definition
 	: FUN IDENTIFIER '(' ARROW type_specifier ')' compound_statement
@@ -432,16 +571,19 @@ void yyerror(const char *s) {
 }
 
 int main() {
-    yyin = fopen("input.c", "r");
+    yyin = fopen("./input.txt", "r");
     if (!yyin) {
-        perror("input.txt");
+        perror("File not found\n");
         return 1;
     }
 
-    if (yyparse() == 0)
+    if (yyparse() == 0){
         printf("Parse successful.\n");
+		progRoot->printNode();
+	}
     else
         printf("Parse failed.\n");
+    
 
     fclose(yyin);
     return 0;

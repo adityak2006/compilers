@@ -2,11 +2,30 @@
 #define AST_H
 
 #include <string>
+#include <iostream>
 #include <vector>
+
+
 
 namespace ast
 {
-
+    inline void printTabs(int tabs)
+    {
+        for(int i=0;i<tabs;i++){
+            std::cout << "\t";
+        }
+        
+    }
+    enum class ASTNodeType {
+        DeclNode, StmtNode, ExprNode, ParamNode, Declarator, Initializer, 
+        CmpdStmtNode, TypeNode, InitDeclarator, FuncNode, GroupNode, StrategyNode,
+        StratDeclNode, IndicatorNode, RegimeNode, SignalFuncNode, ExprStmtNode,
+        ProgramNode, GroupDeclaration, GroupDeclarator, ASTNode, ReturnNode,
+        BreakNode, ContinueNode, IfNode, WhileNode, ForNode,LiteralIntNode, LiteralFloatNode,
+        LiteralStringNode, LiteralBoolNode, IdentifierNode, BinaryExprNode, UnaryExprNode,
+        AssignmentNode,CallNode,CommaExprNode,MemberAccessNode,ArrayAccessNode,ConditionalExprNode,
+        TimeseriesNode,PortfolioStateNode, CastExprNode, SignalFuncListNode
+    };
     class DeclNode;
     class StmtNode;
     class ExprNode;
@@ -23,24 +42,46 @@ namespace ast
     class IndicatorNode;
     class RegimeNode;
     class SignalFuncNode;
+    class ExprStmtNode;
     class ProgramNode;
     class GroupDeclaration;
     class GroupDeclarator;
-
-    using String = std::string;
-    template <typename T>
-    using Vec = std::vector<T>;
+    class ASTNode;
+    class ReturnNode;
+    class BreakNode;
+    class ContinueNode;
+    class IfNode;
+    class WhileNode;
+    class ForNode;
+    class LiteralIntNode;
+    class LiteralFloatNode;
+    class LiteralStringNode;
+    class LiteralBoolNode;
+    class IdentifierNode;
+    class BinaryExprNode;
+    class UnaryExprNode;
+    class AssignmentNode;
+    class CallNode;
+    class CommaExprNode;
+    class MemberAccessNode;
+    class ArrayAccessNode;
+    class ConditionalExprNode;
+    class TimeseriesNode;
+    class PortfolioStateNode;
+    class CastExprNode;
+    class SignalFuncListNode;
+    
 
     enum DataTypes
     {
-        DT_INT,
-        DT_FLOAT,
-        DT_BOOL,
-        DT_STRING,
-        DT_VOID,
-        DT_RGM,
-        DT_TIMESERIES,
-        DT_GROUP
+        INT_TYPE,
+        FLOAT_TYPE,
+        BOOL_TYPE,
+        STRING_TYPE,
+        VOID_TYPE,
+        RGM_TYPE,
+        TIMESERIES_TYPE,
+        GROUP_TYPE
     };
 
     enum SignalType
@@ -87,10 +128,10 @@ namespace ast
     struct ASTVisitor
     {
         virtual ~ASTVisitor() = default;
-        
+
         // Base node
         virtual void visit(ASTNode &node) {}
-        
+
         // Statement nodes
         virtual void visit(StmtNode &node) {}
         virtual void visit(ExprStmtNode &node) {}
@@ -100,7 +141,7 @@ namespace ast
         virtual void visit(IfNode &node) {}
         virtual void visit(WhileNode &node) {}
         virtual void visit(ForNode &node) {}
-        virtual void visit(CmpdStmtAsStmtNode &node) {}
+        virtual void visit(CmpdStmtNode &node) {}
         
         // Expression nodes
         virtual void visit(ExprNode &node) {}
@@ -120,7 +161,7 @@ namespace ast
         virtual void visit(PortfolioStateNode &node) {}
         virtual void visit(CastExprNode &node) {}
         virtual void visit(CommaExprNode &node) {}
-        
+
         // Declaration nodes
         virtual void visit(DeclNode &node) {}
         virtual void visit(TypeNode &node) {}
@@ -128,21 +169,21 @@ namespace ast
         virtual void visit(Declarator &node) {}
         virtual void visit(Initializer &node) {}
         virtual void visit(InitDeclarator &node) {}
-        virtual void visit(CmpdStmtNode &node) {}
-        
+
         // Function and structure nodes
         virtual void visit(FuncNode &node) {}
         virtual void visit(GroupNode &node) {}
         virtual void visit(GroupDeclarator &node) {}
         virtual void visit(GroupDeclaration &node) {}
-        
+
         // Strategy nodes
         virtual void visit(StrategyNode &node) {}
         virtual void visit(StratDeclNode &node) {}
         virtual void visit(IndicatorNode &node) {}
         virtual void visit(RegimeNode &node) {}
         virtual void visit(SignalFuncNode &node) {}
-        
+        virtual void visit(SignalFuncListNode &node){}
+
         // Program root
         virtual void visit(ProgramNode &node) {}
     };
@@ -150,37 +191,45 @@ namespace ast
     class ASTNode
     {
     public:
-        ASTNode() = default;
+        ASTNodeType nodeType;
+        ASTNode() : nodeType(ASTNodeType::ASTNode) {}
         virtual ~ASTNode() = default;
-
+        
         ASTNode(const ASTNode &) = delete;
         ASTNode &operator=(const ASTNode &) = delete;
-
+        virtual void printNode(){
+            std::cout << "ASTNode" << std::endl;
+        }
         virtual void accept(ASTVisitor &) {}
-
-    protected:
     };
-
     class CmpdStmtNode : public ASTNode
     {
     public:
-        Vec<DeclNode *> declarations;
-        Vec<StmtNode *> statements;
+        std::vector<DeclNode *> declarations;
+        std::vector<StmtNode *> statements;
 
-        CmpdStmtNode() = default;
+        CmpdStmtNode() : ASTNode() { nodeType = ASTNodeType::CmpdStmtNode; }
         ~CmpdStmtNode() override = default;
+        void printNode(int tabs){
+            if(declarations.size()>0){
+                std::cout << "compound" << std::endl;
+            }
+            else{
+                std::cout << "NULL" << std::endl;
+            }
+        }
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
-
+    
     class TypeNode : public ASTNode
     {
     public:
-        DataTypes type = DT_INT;
+        DataTypes type = INT_TYPE;
         bool constFlag = false;
-        String id;
+        std::string id;
         bool userDefinedFlag = false;
-
-        TypeNode() = default;
+        
+        TypeNode() : ASTNode() { nodeType = ASTNodeType::TypeNode; }
         ~TypeNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -188,10 +237,10 @@ namespace ast
     class ParamNode : public ASTNode
     {
     public:
-        TypeNode *type = nullptr;
-        String id;
+        TypeNode *type = NULL;
+        std::string id;
 
-        ParamNode() = default;
+        ParamNode() : ASTNode() { nodeType = ASTNodeType::ParamNode; }
         ~ParamNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -199,13 +248,13 @@ namespace ast
     class Declarator : public ASTNode
     {
     public:
-        String id;
+        std::string id;
         bool arrayFlag = false;
-        ExprNode *arraySize = nullptr;
+        ExprNode *arraySize = NULL;
         bool funcFlag = false;
-        Vec<ParamNode *> params;
+        std::vector<ParamNode *> params;
 
-        Declarator() = default;
+        Declarator() : ASTNode() { nodeType = ASTNodeType::Declarator; }
         ~Declarator() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -213,10 +262,10 @@ namespace ast
     class Initializer : public ASTNode
     {
     public:
-        Vec<Initializer *> initializerList;
-        ExprNode *expr = nullptr;
+        std::vector<Initializer *> initializerList;
+        ExprNode *expr = NULL;
 
-        Initializer() = default;
+        Initializer() : ASTNode() { nodeType = ASTNodeType::Initializer; }
         ~Initializer() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -224,10 +273,10 @@ namespace ast
     class InitDeclarator : public ASTNode
     {
     public:
-        Declarator *declarator = nullptr;
-        Initializer *initializer = nullptr;
+        Declarator *declarator = NULL;
+        Initializer *initializer = NULL;
 
-        InitDeclarator() = default;
+        InitDeclarator() : ASTNode() { nodeType = ASTNodeType::InitDeclarator; }
         ~InitDeclarator() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -235,10 +284,10 @@ namespace ast
     class DeclNode : public ASTNode
     {
     public:
-        TypeNode *type = nullptr;
-        Vec<InitDeclarator *> decls;
+        TypeNode *type = NULL;
+        std::vector<InitDeclarator *> decls;
 
-        DeclNode() = default;
+        DeclNode() : ASTNode() { nodeType = ASTNodeType::DeclNode; }
         ~DeclNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -246,7 +295,7 @@ namespace ast
     class StmtNode : public ASTNode
     {
     public:
-        StmtNode() = default;
+        StmtNode() : ASTNode() { nodeType = ASTNodeType::StmtNode; }
         ~StmtNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -254,8 +303,8 @@ namespace ast
     class ExprStmtNode : public StmtNode
     {
     public:
-        ExprNode *expr = nullptr;
-        ExprStmtNode() = default;
+        ExprNode *expr = NULL;
+        ExprStmtNode() : StmtNode() { nodeType = ASTNodeType::ExprStmtNode; }
         ~ExprStmtNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -263,8 +312,8 @@ namespace ast
     class ReturnNode : public StmtNode
     {
     public:
-        ExprNode *expr = nullptr;
-        ReturnNode() = default;
+        ExprNode *expr = NULL;
+        ReturnNode() : StmtNode() { nodeType = ASTNodeType::ReturnNode; }
         ~ReturnNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -272,7 +321,7 @@ namespace ast
     class BreakNode : public StmtNode
     {
     public:
-        BreakNode() = default;
+        BreakNode() : StmtNode() { nodeType = ASTNodeType::BreakNode; }
         ~BreakNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -280,7 +329,7 @@ namespace ast
     class ContinueNode : public StmtNode
     {
     public:
-        ContinueNode() = default;
+        ContinueNode() : StmtNode() { nodeType = ASTNodeType::ContinueNode; }
         ~ContinueNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -288,11 +337,11 @@ namespace ast
     class IfNode : public StmtNode
     {
     public:
-        ExprNode *condition = nullptr;
-        StmtNode *thenBranch = nullptr;
-        StmtNode *elseBranch = nullptr;
+        ExprNode *condition = NULL;
+        StmtNode *thenBranch = NULL;
+        StmtNode *elseBranch = NULL;
 
-        IfNode() = default;
+        IfNode() : StmtNode() { nodeType = ASTNodeType::IfNode; }
         ~IfNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -300,10 +349,10 @@ namespace ast
     class WhileNode : public StmtNode
     {
     public:
-        ExprNode *condition = nullptr;
-        StmtNode *body = nullptr;
+        ExprNode *condition = NULL;
+        StmtNode *body = NULL;
 
-        WhileNode() = default;
+        WhileNode() : StmtNode() { nodeType = ASTNodeType::WhileNode; }
         ~WhileNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -311,12 +360,12 @@ namespace ast
     class ForNode : public StmtNode
     {
     public:
-        ExprNode *init = nullptr; // Can be expression_statement
-        ExprNode *condition = nullptr;
-        ExprNode *increment = nullptr;
-        StmtNode *body = nullptr;
+        ExprNode *init = NULL; // Can be expression_statement
+        ExprNode *condition = NULL;
+        ExprNode *increment = NULL;
+        StmtNode *body = NULL;
 
-        ForNode() = default;
+        ForNode() : StmtNode() { nodeType = ASTNodeType::ForNode; }
         ~ForNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -324,8 +373,8 @@ namespace ast
     class CmpdStmtAsStmtNode : public StmtNode
     {
     public:
-        CmpdStmtNode *body = nullptr;
-        CmpdStmtAsStmtNode() = default;
+        CmpdStmtNode *body = NULL;
+        CmpdStmtAsStmtNode() : StmtNode() { nodeType = ASTNodeType::CmpdStmtNode; }
         ~CmpdStmtAsStmtNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -333,7 +382,7 @@ namespace ast
     class ExprNode : public ASTNode
     {
     public:
-        ExprNode() = default;
+        ExprNode() : ASTNode() { nodeType = ASTNodeType::ExprNode; }
         ~ExprNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -342,7 +391,7 @@ namespace ast
     {
     public:
         int value = 0;
-        LiteralIntNode() = default;
+        LiteralIntNode() : ExprNode() { nodeType = ASTNodeType::LiteralIntNode; }
         ~LiteralIntNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -351,25 +400,25 @@ namespace ast
     {
     public:
         double value = 0.0;
-        LiteralFloatNode() = default;
+        LiteralFloatNode() : ExprNode() { nodeType = ASTNodeType::LiteralFloatNode; }
         ~LiteralFloatNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
-
+    
     class LiteralStringNode : public ExprNode
     {
     public:
-        String value;
-        LiteralStringNode() = default;
+        std::string value;
+        LiteralStringNode() : ExprNode() { nodeType = ASTNodeType::LiteralStringNode; }
         ~LiteralStringNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
-
+    
     class LiteralBoolNode : public ExprNode
     {
     public:
         bool value = false;
-        LiteralBoolNode() = default;
+        LiteralBoolNode() : ExprNode() { nodeType = ASTNodeType::LiteralBoolNode; }
         ~LiteralBoolNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -377,22 +426,22 @@ namespace ast
     class IdentifierNode : public ExprNode
     {
     public:
-        String id;
-        void *symbolEntry = nullptr;
+        std::string id;
+        void *symbolEntry = NULL;
 
-        IdentifierNode() = default;
+        IdentifierNode() : ExprNode() { nodeType = ASTNodeType::IdentifierNode; }
         ~IdentifierNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
-
+    
     class BinaryExprNode : public ExprNode
     {
     public:
-        String op;
-        ExprNode *leftOperand = nullptr;
-        ExprNode *rightOperand = nullptr;
+        std::string op;
+        ExprNode *leftOperand = NULL;
+        ExprNode *rightOperand = NULL;
 
-        BinaryExprNode() = default;
+        BinaryExprNode() : ExprNode() { nodeType = ASTNodeType::BinaryExprNode; }
         ~BinaryExprNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -400,10 +449,10 @@ namespace ast
     class UnaryExprNode : public ExprNode
     {
     public:
-        String op;
-        ExprNode *operand = nullptr;
+        std::string op;
+        ExprNode *operand = NULL;
 
-        UnaryExprNode() = default;
+        UnaryExprNode() : ExprNode() { nodeType = ASTNodeType::UnaryExprNode; }
         ~UnaryExprNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -411,10 +460,10 @@ namespace ast
     class AssignmentNode : public ExprNode
     {
     public:
-        ExprNode *target = nullptr; // Changed from IdentifierNode* to support array access
-        ExprNode *value = nullptr;
+        ExprNode *target = NULL; // Changed from IdentifierNode* to support array access
+        ExprNode *value = NULL;
 
-        AssignmentNode() = default;
+        AssignmentNode() : ExprNode() { nodeType = ASTNodeType::AssignmentNode; }
         ~AssignmentNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -422,21 +471,21 @@ namespace ast
     class CallNode : public ExprNode
     {
     public:
-        ExprNode *callee = nullptr;
-        Vec<ExprNode *> arguments;
+        ExprNode *callee = NULL;
+        std::vector<ExprNode *> arguments;
 
-        CallNode() = default;
+        CallNode() : ExprNode() { nodeType = ASTNodeType::CallNode; }
         ~CallNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
-
+    
     class MemberAccessNode : public ExprNode
     {
     public:
-        ExprNode *object = nullptr;
-        String member;
+        ExprNode *object = NULL;
+        std::string member;
 
-        MemberAccessNode() = default;
+        MemberAccessNode() : ExprNode() { nodeType = ASTNodeType::MemberAccessNode; }
         ~MemberAccessNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -444,10 +493,10 @@ namespace ast
     class ArrayAccessNode : public ExprNode
     {
     public:
-        ExprNode *array = nullptr;
-        ExprNode *index = nullptr;
+        ExprNode *array = NULL;
+        ExprNode *index = NULL;
 
-        ArrayAccessNode() = default;
+        ArrayAccessNode() : ExprNode() { nodeType = ASTNodeType::ArrayAccessNode; }
         ~ArrayAccessNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -455,11 +504,11 @@ namespace ast
     class ConditionalExprNode : public ExprNode
     {
     public:
-        ExprNode *condition = nullptr;
-        ExprNode *thenExpr = nullptr;
-        ExprNode *elseExpr = nullptr;
+        ExprNode *condition = NULL;
+        ExprNode *thenExpr = NULL;
+        ExprNode *elseExpr = NULL;
 
-        ConditionalExprNode() = default;
+        ConditionalExprNode() : ExprNode() { nodeType = ASTNodeType::ConditionalExprNode; }
         ~ConditionalExprNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -468,9 +517,9 @@ namespace ast
     {
     public:
         TimeseriesFuncType funcType;
-        Vec<ExprNode *> args; // Can be timeseries expressions or identifiers
+        std::vector<ExprNode *> args; // Can be timeseries expressions or identifiers
 
-        TimeseriesNode() = default;
+        TimeseriesNode() : ExprNode() { nodeType = ASTNodeType::TimeseriesNode; }
         ~TimeseriesNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -480,7 +529,7 @@ namespace ast
     public:
         PortfolioStateType stateType;
 
-        PortfolioStateNode() = default;
+        PortfolioStateNode() : ExprNode() { nodeType = ASTNodeType::PortfolioStateNode; }
         ~PortfolioStateNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -488,10 +537,10 @@ namespace ast
     class CastExprNode : public ExprNode
     {
     public:
-        TypeNode *targetType = nullptr;
-        ExprNode *expr = nullptr;
+        TypeNode *targetType = NULL;
+        ExprNode *expr = NULL;
 
-        CastExprNode() = default;
+        CastExprNode() : ExprNode() { nodeType = ASTNodeType::CastExprNode; }
         ~CastExprNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -499,9 +548,9 @@ namespace ast
     class CommaExprNode : public ExprNode
     {
     public:
-        Vec<ExprNode *> expressions;
+        std::vector<ExprNode *> expressions;
 
-        CommaExprNode() = default;
+        CommaExprNode() : ExprNode() { nodeType = ASTNodeType::CommaExprNode; }
         ~CommaExprNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -509,12 +558,12 @@ namespace ast
     class FuncNode : public ASTNode
     {
     public:
-        String name;
-        TypeNode *returnType = nullptr;
-        Vec<ParamNode *> params;
-        CmpdStmtNode *body = nullptr;
+        std::string name;
+        TypeNode *returnType = NULL;
+        std::vector<ParamNode *> params;
+        CmpdStmtNode *body = NULL;
 
-        FuncNode() = default;
+        FuncNode() : ASTNode() { nodeType = ASTNodeType::FuncNode; }
         ~FuncNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -523,11 +572,11 @@ namespace ast
     class GroupDeclarator : public ASTNode
     {
     public:
-        Declarator *declarator = nullptr;
-        ExprNode *bitfield = nullptr; // For bitfield specification (: conditional_expression)
+        Declarator *declarator = NULL;
+        ExprNode *bitfield = NULL; // For bitfield specification (: conditional_expression)
         bool isBitfieldOnly = false;  // True if only bitfield without declarator
-
-        GroupDeclarator() = default;
+        
+        GroupDeclarator() : ASTNode() { nodeType = ASTNodeType::GroupDeclarator; }
         ~GroupDeclarator() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -536,10 +585,10 @@ namespace ast
     class GroupDeclaration : public ASTNode
     {
     public:
-        TypeNode *type = nullptr;
-        Vec<GroupDeclarator *> declarators;
+        TypeNode *type = NULL;
+        std::vector<GroupDeclarator *> declarators;
 
-        GroupDeclaration() = default;
+        GroupDeclaration() : ASTNode() { nodeType = ASTNodeType::GroupDeclaration; }
         ~GroupDeclaration() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -547,11 +596,11 @@ namespace ast
     class GroupNode : public ASTNode
     {
     public:
-        String id;                       // Can be empty for anonymous groups
-        Vec<GroupDeclaration *> members; // Group member declarations
+        std::string id;                       // Can be empty for anonymous groups
+        std::vector<GroupDeclaration *> members; // Group member declarations
         bool isReference = false;        // True if just "GROUP IDENTIFIER" (reference to existing)
 
-        GroupNode() = default;
+        GroupNode() : ASTNode() { nodeType = ASTNodeType::GroupNode; }
         ~GroupNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -559,11 +608,11 @@ namespace ast
     class StratDeclNode : public ASTNode
     {
     public:
-        String symbol;        // SYMBOL = STRINGLIT
-        Vec<int> timeframe;   // TIMEFRAME = {int, int, int}
+        std::string symbol;        // SYMBOL = STRINGLIT
+        std::vector<int> timeframe;   // TIMEFRAME = {int, int, int}
         int positionSize = 0; // P_SIZE = INTLIT
 
-        StratDeclNode() = default;
+        StratDeclNode() : ASTNode() { nodeType = ASTNodeType::StratDeclNode; }
         ~StratDeclNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -571,9 +620,9 @@ namespace ast
     class IndicatorNode : public ASTNode
     {
     public:
-        CmpdStmtNode *body = nullptr;
+        CmpdStmtNode *body = NULL;
 
-        IndicatorNode() = default;
+        IndicatorNode() : ASTNode() { nodeType = ASTNodeType::IndicatorNode; }
         ~IndicatorNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
@@ -581,52 +630,136 @@ namespace ast
     class RegimeNode : public ASTNode
     {
     public:
-        CmpdStmtNode *body = nullptr;
+        CmpdStmtNode *body = NULL;
 
-        RegimeNode() = default;
+        RegimeNode() : ASTNode() { nodeType = ASTNodeType::RegimeNode; }
         ~RegimeNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
-
+    
     class SignalFuncNode : public ASTNode
     {
     public:
-        String regimeId; // Optional: IDENTIFIER SCOPE signal_type (empty if no regime scope)
+        std::string regimeId; // Optional: IDENTIFIER SCOPE signal_type (empty if no regime scope)
         SignalType signalType;
-        CmpdStmtNode *body = nullptr;
+        CmpdStmtNode *body = NULL;
 
-        SignalFuncNode() = default;
+        SignalFuncNode() : ASTNode() { nodeType = ASTNodeType::SignalFuncNode; }
         ~SignalFuncNode() override = default;
+        void accept(ASTVisitor &v) override { v.visit(*this); }
+    };
+    
+    class SignalFuncListNode : public ASTNode
+    {
+    public:
+        std::vector<SignalFuncNode *> signals;
+        
+        SignalFuncListNode() : ASTNode() { nodeType = ASTNodeType::SignalFuncListNode; }
+        ~SignalFuncListNode() override = default;
+
         void accept(ASTVisitor &v) override { v.visit(*this); }
     };
 
     class StrategyNode : public ASTNode
     {
     public:
-        String id;
-        StratDeclNode *declarations = nullptr; // Strategy declarations (symbol, timeframe, position size)
-        IndicatorNode *indicators = nullptr;   // Optional indicator section
-        RegimeNode *regimes = nullptr;         // Optional regime section
-        Vec<SignalFuncNode *> signals;         // Signal function list
-
-        StrategyNode() = default;
+        std::string id;
+        StratDeclNode *declarations = NULL; // Strategy declarations (symbol, timeframe, position size)
+        IndicatorNode *indicators = NULL;   // Optional indicator section
+        RegimeNode *regimes = NULL;         // Optional regime section
+        SignalFuncListNode* signals = NULL;       // Signal function list
+        
+        StrategyNode() : ASTNode() { nodeType = ASTNodeType::StrategyNode; }
         ~StrategyNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
-    };
+        void printNode(int tabs = 0)
+        {
+            printTabs(tabs);
+            std::cout << "StrategyNode: " << this->id << "\n";
+        
+            if (this->declarations)
+            {
+                printTabs(tabs + 1);
+                std::cout << "Declarations: Symbol=" << this->declarations->symbol
+                        << ", PositionSize=" << this->declarations->positionSize << "\n";
 
+                printTabs(tabs + 1);
+                std::cout << "Timeframe: ";
+                for (auto t : this->declarations->timeframe)
+                    std::cout << t << " ";
+                std::cout << "\n";
+            }
+            
+            if (this->indicators && this->indicators->body)
+            {
+                printTabs(tabs + 1);
+                std::cout << "Indicators:\n";
+                this->indicators->body->printNode(tabs + 2);
+            }
+            
+            if (this->regimes && this->regimes->body)
+            {
+                printTabs(tabs + 1);
+                std::cout << "Regimes:\n";
+                this->regimes->body->printNode(tabs + 2);
+            }
+            
+            if (this->signals)
+            {
+                printTabs(tabs + 1);
+                std::cout << "Signals:\n";
+                for (auto sig : this->signals->signals)
+                {
+                    printTabs(tabs + 2);
+                    std::cout << "SignalFunc: ";
+                    if (!sig->regimeId.empty())
+                        std::cout << "Regime=" << sig->regimeId << ", ";
+                    std::cout << "Type=" << static_cast<int>(sig->signalType) << "\n";
+                    if (sig->body)
+                        sig->body->printNode(tabs + 3);
+                }
+            }
+        }
+    };
+    
     class ProgramNode : public ASTNode
     {
     public:
-        Vec<FuncNode *> functions;
-        Vec<DeclNode *> globalDeclarations;
-        Vec<StrategyNode *> strategies;
-        Vec<GroupNode *> groups; // Top-level group definitions
-
-        ProgramNode() = default;
+        std::vector<FuncNode *> functions;
+        std::vector<DeclNode *> globalDeclarations;
+        std::vector<StrategyNode *> strategies;
+        std::vector<GroupNode *> groups; // Top-level group definitions
+        
+        ProgramNode() : ASTNode() { nodeType = ASTNodeType::ProgramNode; }
         ~ProgramNode() override = default;
         void accept(ASTVisitor &v) override { v.visit(*this); }
+        void printNode()
+        {
+            std::cout << "ProgramNode\n";
+            
+            for (auto f : functions)
+            {
+                std::cout << "Function: " << f->name << "\n";
+            }
+            
+            for (auto d : globalDeclarations)
+            {
+                std::cout << "Global Declaration\n";
+            }
+            
+            for (auto s : strategies)
+            {
+                s->printNode();
+            }
+            
+            for (auto g : groups)
+            {
+                std::cout << "Group: " << g->id << "\n";
+            }
+        }
     };
-
+    
+    
 }
 
 #endif

@@ -1,0 +1,5 @@
+strategy foll {
+    symbol = "AAPL";
+    timeframe = {1,1,1};
+    p_size = 100;
+}
