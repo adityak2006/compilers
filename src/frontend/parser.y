@@ -7,6 +7,8 @@
 #include <string>
 #include "ast.h"
 
+using namespace std;
+
 extern FILE *yyin;
 extern int col;
 int yyparse(void);
@@ -15,34 +17,44 @@ void yyerror(const char* s);
 extern int yylineno;
 extern char *yytext;
 
-ast::ProgramNode* progRoot;
+ProgramNode* progRoot;
 %}
 
 
 %union {
-	ast::ProgramNode* prog;
-	ast::ASTNode* node;
-	ast::ExprNode* expr;
-	ast::StmtNode* stmt;
-	ast::FuncNode* func;
-	ast::DeclNode* decl;
-	ast::ParamNode* param;
-	ast::Declarator* declarator;
-	ast::CmpdStmtNode* cmpdStmt;
-	ast::TypeNode* type;
-	ast::InitDeclarator* initDecl;
-	ast::GroupNode* group;
-	ast::StrategyNode* strategy;
-	ast::StratDeclNode* strategyDecl;
-	ast::IndicatorNode* indicator;
-	ast::RegimeNode* regime;
-	ast::SignalFuncNode* signalFunc;
-	ast::GroupDeclaration* groupDeclaration;
-	ast::GroupDeclarator* groupDeclarator;
-	ast::SignalFuncListNode* sigFuncList;
+	ProgramNode* prog;
+	ASTNode* node;
+	ExprNode* expr;
+	StmtNode* stmt;
+	FuncNode* func;
+	DeclNode* decl;
+	ParamNode* param;
+	Initializer* init;
+	Declarator* declarator;
+	CmpdStmtNode* cmpdStmt;
+	TypeNode* type;
+	InitDeclarator* initDecl;
+	GroupNode* group;
+	StrategyNode* strategy;
+	StratDeclNode* strategyDecl;
+	IndicatorNode* indicator;
+	RegimeNode* regime;
+	SignalFuncNode* signalFunc;
+	GroupDeclaration* groupDeclaration;
+	GroupDeclarator* groupDeclarator;
+	SignalFuncListNode* sigFuncList;
     int intVal;
     float floatVal;
     std::string* id;
+	std::vector<ExprNode*>* exprVec;
+	std::vector<StmtNode*>* stmtVec;
+	std::vector<DeclNode*>* declVec;
+	std::vector<initDecl*>* initDeclVec;
+	std::vector<Initializer*>* initList;
+	std::vector<ParamNode*>* paramVec;
+	std::vector<GroupDeclaration*>* groupDeclList;
+	std::vector<GroupDeclarator*>* groupDeclaratorList;
+
 }
 
 %token STRATEGY SYMBOL TIMEFRAME P_SIZE INDICATORS REGIMES 
@@ -63,26 +75,78 @@ ast::ProgramNode* progRoot;
 %token <intVal> INTLIT
 %token <floatVal> FLOATLIT 
 
-%type <prog> translation_unit
-%type <strategy> strategy_definition strategy_body
-%type <strategyDecl> strategy_declarations
-%type <indicator> indicator_section
-%type <regime> regime_section
-%type <signalFunc> signal_function
-%type <sigFuncList> signal_function_list
-%type <cmpdStmt> compound_statement
-%type <node> external_declaration
+%type <intVal> unaryOperator
+%type <prog> translationUnit
+%type <strategy> strategyDefinition strategyBody
+%type <strategyDecl> strategyDeclarations
+%type <indicator> indicatorSection
+%type <regime> regimeSection
+%type <signalFunc> signalFunction
+%type <sigFuncList> signalFunctionList
+%type <node> globalDeclaration
+%type <expr> primaryExpression postfixExpression expression unaryExpression castExpression multiplicativeExpression additiveExpression
+%type <expr> shiftExpression relationalExpression equalityExpression andExpression exclusiveOrExpression inclusiveOrExpression
+%type <expr> logicalAndExpression logicalOrExpression conditionalExpression assignmentExpression timeseries timeseriesExpression
+%type <exprVec> argumentExpressionList identifierList
 
+%type <param> parameter_declaration
+%type <paramVec> parameterList
+
+%type <stmtVec> statementList
+%type <stmt> compoundStatement statement jumpStatement iterationStatement selectionStatement expressionStatement
+
+%type <func> function_definition
+%type <decl> declaration
+%type <declVec> declarationList
+%type <type> declarationSpecifiers typeSpecifier specifier_qualifierList type_name
+
+%type <init> initializer
+%type <initList> initializerList
+%type <initDecl> initDeclarator
+%type <initDeclVec> initDeclaratorList
+
+%type <declarator> direct_declarator direct_abstract_declarator
+
+%type <group> groupSpecifier
+%type <groupDeclaration> group_declaration
+%type <groupDeclList> group_declarationList
+%type <groupDeclarator> group_declarator
+%type <groupDeclaratorList> group_declaratorList
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%start translation_unit
 
 %%
 
-strategy_definition
-    : STRATEGY IDENTIFIER '{' strategy_body '}' {
-		$$ = new ast::StrategyNode();
+translationUnit
+    : globalDeclaration {
+        $$ = new ProgramNode();
+        ASTNode* node = $1;
+        if(node->nodeType == ASTNodeType::FuncNode)
+            $$->functions.push_back((FuncNode*)node);
+        else if(node->nodeType == ASTNodeType::DeclNode)
+            $$->globalDeclarations.push_back((DeclNode*)node);
+        else if(node->nodeType == ASTNodeType::StrategyNode)
+            $$->strategies.push_back((StrategyNode*)node);
+		
+		progRoot = $$;
+    }
+    | translationUnit globalDeclaration {
+        $$ = $1;
+        ASTNode* node = $2;
+        if(node->nodeType == ASTNodeType::FuncNode)
+            $$->functions.push_back((FuncNode*)node);
+        else if(node->nodeType == ASTNodeType::DeclNode)
+            $$->globalDeclarations.push_back((DeclNode*)node);
+        else if(node->nodeType == ASTNodeType::StrategyNode)
+            $$->strategies.push_back((StrategyNode*)node);
+		progRoot = $$;
+    }
+;
+
+strategyDefinition
+    : STRATEGY IDENTIFIER '{' strategyBody '}' {
+		$$ = new StrategyNode();
 		$$->id = *$2;
 		if($4){
 			$$->declarations = $4->declarations;
@@ -93,9 +157,9 @@ strategy_definition
 	}
     ;
 
-strategy_body
-    : strategy_declarations indicator_section regime_section signal_function_list {
-		$$ = new ast::StrategyNode();
+strategyBody
+    : strategyDeclarations indicatorSection regimeSection signalFunctionList {
+		$$ = new StrategyNode();
 		$$->declarations = $1;
         $$->indicators = $2;
         $$->regimes = $3;
@@ -103,9 +167,9 @@ strategy_body
 	}
     ;
 
-strategy_declarations
+strategyDeclarations
     : SYMBOL '=' STRINGLIT ';' TIMEFRAME '=' '{'INTLIT ',' INTLIT',' INTLIT '}' ';' P_SIZE '=' INTLIT ';' {
-		$$ = new ast::StratDeclNode();
+		$$ = new StratDeclNode();
 		$$->symbol = *$3;
 		$$->timeframe.push_back($8);
         $$->timeframe.push_back($10);
@@ -114,453 +178,1312 @@ strategy_declarations
 	}
     ;
 
-indicator_section
+indicatorSection
     : {$$ = NULL;}
-	| INDICATORS compound_statement {
-		$$ = new ast::IndicatorNode();
+	| INDICATORS compoundStatement {
+		$$ = new IndicatorNode();
         $$->body = $2;
 	}
     ;
 
-regime_section
+regimeSection
     : {$$ = NULL;}
-	| REGIMES compound_statement {
-		$$ = new ast::RegimeNode();
+	| REGIMES compoundStatement {
+		$$ = new RegimeNode();
         $$->body = $2;
 	}
     ;
 
-signal_function_list
-    :  { $$ = new ast::SignalFuncListNode(); }
-    | signal_function_list signal_function {
+signalFunctionList
+    :  { $$ = new SignalFuncListNode(); }
+    | signalFunctionList signalFunction {
         $$ = $1;
         if ($2) $$->signals.push_back($2);
     }
     ;
 
-signal_function
-    : IDENTIFIER SCOPE ENTRYLONG compound_statement {
-        $$ = new ast::SignalFuncNode();
+signalFunction
+    : IDENTIFIER SCOPE ENTRYLONG compoundStatement {
+        $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = ast::SIGNAL_ENTRY_LONG;
+        $$->signalType = SIGNAL_ENTRY_LONG;
         $$->body = $4;
     }
-    | IDENTIFIER SCOPE ENTRYSHORT compound_statement {
-        $$ = new ast::SignalFuncNode();
+    | IDENTIFIER SCOPE ENTRYSHORT compoundStatement {
+        $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = ast::SIGNAL_ENTRY_SHORT;
+        $$->signalType = SIGNAL_ENTRY_SHORT;
         $$->body = $4;
     }
-    | IDENTIFIER SCOPE EXITLONG compound_statement {
-        $$ = new ast::SignalFuncNode();
+    | IDENTIFIER SCOPE EXITLONG compoundStatement {
+        $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = ast::SIGNAL_EXIT_LONG;
+        $$->signalType = SIGNAL_EXIT_LONG;
         $$->body = $4;
     }
-    | IDENTIFIER SCOPE EXITSHORT compound_statement {
-        $$ = new ast::SignalFuncNode();
+    | IDENTIFIER SCOPE EXITSHORT compoundStatement {
+        $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = ast::SIGNAL_EXIT_SHORT;
+        $$->signalType = SIGNAL_EXIT_SHORT;
         $$->body = $4;
     }
-    | ENTRYLONG compound_statement {
-        $$ = new ast::SignalFuncNode();
-        $$->signalType = ast::SIGNAL_ENTRY_LONG;
+    | ENTRYLONG compoundStatement {
+        $$ = new SignalFuncNode();
+        $$->signalType = SIGNAL_ENTRY_LONG;
         $$->body = $2;
     }
-    | ENTRYSHORT compound_statement {
-        $$ = new ast::SignalFuncNode();
-        $$->signalType = ast::SIGNAL_ENTRY_SHORT;
+    | ENTRYSHORT compoundStatement {
+        $$ = new SignalFuncNode();
+        $$->signalType = SIGNAL_ENTRY_SHORT;
         $$->body = $2;
     }
-    | EXITLONG compound_statement {
-        $$ = new ast::SignalFuncNode();
-        $$->signalType = ast::SIGNAL_EXIT_LONG;
+    | EXITLONG compoundStatement {
+        $$ = new SignalFuncNode();
+        $$->signalType = SIGNAL_EXIT_LONG;
         $$->body = $2;
     }
-    | EXITSHORT compound_statement {
-        $$ = new ast::SignalFuncNode();
-        $$->signalType = ast::SIGNAL_EXIT_SHORT;
+    | EXITSHORT compoundStatement {
+        $$ = new SignalFuncNode();
+        $$->signalType = SIGNAL_EXIT_SHORT;
         $$->body = $2;
     }
     ;
 
-primary_expression
-    : IDENTIFIER 
-    | INTLIT 
-    | FLOATLIT 
-    | STRINGLIT 
-    | '(' expression ')' 
-    | timeseries_expression
+primaryExpression
+    : IDENTIFIER {
+        $$ = new IdentifierNode();
+        ((IdentifierNode*)$$)->id = *$1;
+    }
+    | INTLIT {
+        $$ = new LiteralIntNode();
+        ((LiteralIntNode*)$$)->value = $1;
+    }
+    | FLOATLIT {
+        $$ = new LiteralFloatNode();
+        ((LiteralFloatNode*)$$)->value = $1;
+    }
+    | STRINGLIT {
+        $$ = new LiteralStringNode();
+        ((LiteralStringNode*)$$)->value = *$1;
+    }
+    | '(' expression ')' { $$ = $2; }
+    | timeseriesExpression { $$ = $1; }
     ;
 
 timeseries
-    : CLOSE
-    | OPEN
-    | HIGH
-    | LOW
-    | VOLUME
-    | SMA '(' timeseries ',' INTLIT ')'
-    | EMA '(' timeseries ',' INTLIT ')'
-    | RSI '(' timeseries ',' INTLIT ')'
-    | BB '(' timeseries ',' INTLIT ',' FLOATLIT ')'
-    | ATR '(' timeseries ',' timeseries ',' timeseries ',' INTLIT ')'
-    | SDV '(' timeseries ',' INTLIT ')'
-    | MAX '(' timeseries ',' INTLIT ')'
-    | MIN '(' timeseries ',' INTLIT ')'
-    | SUM '(' timeseries ',' INTLIT ')'
-    | MEDIAN '(' timeseries ',' INTLIT ')'
-    | AVG '(' timeseries ',' INTLIT ')'
-    | ABS '(' timeseries ',' INTLIT ')'
-    | CORRELATION '(' timeseries ',' timeseries ',' INTLIT ')'
-    | SLOPE '(' timeseries ',' INTLIT ')'
-    | RSQUARED '(' timeseries ',' INTLIT ')'
+    : CLOSE {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::CLOSE;
+        $$ = node;
+	}
+    | OPEN {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::OPEN;
+        $$ = node;
+	}
+    | HIGH {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::HIGH;
+        $$ = node;
+	}
+    | LOW {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::LOW;
+        $$ = node;
+	}
+    | VOLUME {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::VOLUME;
+        $$ = node;
+	}
+    | SMA '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SMA;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | EMA '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::EMA;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | RSI '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::RSI;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | BB '(' timeseries ',' INTLIT ',' FLOATLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::BB;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		LiteralFloatNode* floatNode = new LiteralFloatNode();
+		floatNode->value = $7;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+		node->args.push_back(floatNode);
+        $$ = node;
+	}
+    | ATR '(' timeseries ',' timeseries ',' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::ATR;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $9;
+		node->args.push_back($3);
+		node->args.push_back($5);
+		node->args.push_back($7);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | SDV '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SDV;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | MAX '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::MAX;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | MIN '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::MIN;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | SUM '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SUM;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | MEDIAN '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::MEDIAN;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | AVG '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::AVG;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | ABS '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::ABS;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | CORRELATION '(' timeseries ',' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::CORRELATION;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $7;
+		node->args.push_back($3);
+		node->args.push_back($5);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | SLOPE '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SLOPE;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | RSQUARED '(' timeseries ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::RSQUARED;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		node->args.push_back($3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
     ;
 
-timeseries_expression
-	: timeseries
-    | SMA '(' IDENTIFIER ',' INTLIT ')'
-    | EMA '(' IDENTIFIER ',' INTLIT ')'
-    | RSI '(' IDENTIFIER ',' INTLIT ')'
-    | BB '(' IDENTIFIER ',' INTLIT ',' FLOATLIT ')'
-    | ATR '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')'
-    | SDV '(' IDENTIFIER ',' INTLIT ')'
-    | MAX '(' IDENTIFIER ',' INTLIT ')'
-    | MIN '(' IDENTIFIER ',' INTLIT ')'
-    | SUM '(' IDENTIFIER ',' INTLIT ')'
-    | MEDIAN '(' IDENTIFIER ',' INTLIT ')'
-    | AVG '(' IDENTIFIER ',' INTLIT ')'
-    | ABS '(' IDENTIFIER ',' INTLIT ')'
-    | CORRELATION '(' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')'
-    | SLOPE '(' IDENTIFIER ',' INTLIT ')'
-    | RSQUARED '(' IDENTIFIER ',' INTLIT ')'
+timeseriesExpression
+	: timeseries {
+		$$ = $1;
+	}
+    | SMA '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SMA;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | EMA '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::EMA;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | RSI '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::RSI;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | BB '(' IDENTIFIER ',' INTLIT ',' FLOATLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::BB;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		LiteralFloatNode* floatNode = new LiteralFloatNode();
+		floatNode->value = $7;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+		node->args.push_back(floatNode);
+        $$ = node;
+	}
+    | ATR '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::ATR;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $9;
+		IdentifierNode* idNode1 = new IdentifierNode();
+		idNode->id = $3;
+		IdentifierNode* idNode2 = new IdentifierNode();
+		idNode->id = $5;
+		IdentifierNode* idNode3 = new IdentifierNode();
+		idNode->id = $7;
+		node->args.push_back(idNode1);
+		node->args.push_back(idNode2);
+		node->args.push_back(idNode3);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | SDV '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SDV;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | MAX '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::MAX;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | MIN '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::MIN;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | SUM '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SUM;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | MEDIAN '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::MEDIAN;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | AVG '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::AVG;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | ABS '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::ABS;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | CORRELATION '(' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::CORRELATION;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $7;
+		IdentifierNode* idNode1 = new IdentifierNode();
+		idNode->id = $3;
+		IdentifierNode* idNode2 = new IdentifierNode();
+		idNode->id = $5;
+		node->args.push_back(idNode1);
+		node->args.push_back(idNode2);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | SLOPE '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::SLOPE;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
+    | RSQUARED '(' IDENTIFIER ',' INTLIT ')' {
+		TimeseriesNode* node = new TimeseriesNode();
+        node->funcType = TimeseriesFuncType::RSQUARED;
+		LiteralIntNode* intNode = new LiteralIntNode();
+		intNode->value = $5;
+		IdentifierNode* idNode = new IdentifierNode();
+		idNode->id = $3;
+		node->args.push_back(idNode);
+		node->args.push_back(intNode);
+        $$ = node;
+	}
 	;
 
-postfix_expression
-	: primary_expression
-	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
-	| postfix_expression '.' IDENTIFIER
-	| PORTFOLIO_VALUE
-	| CASH_AVAILABLE
-	| POSITION_SHARES
-	| ENTRY_PRICE
-	| DAYS_IN_POSITION
+postfixExpression
+	: primaryExpression {
+		$$ = $1;
+	}
+	| postfixExpression '[' expression ']' {
+		ArrayAccessNode* arrAccess = new ArrayAccessNode();
+		arrAccess->array = (ExprNode*)$1;
+		arrAccess->index = (ExprNode*)$3;
+		$$ = arrAccess;
+	}
+	| postfixExpression '(' ')' {
+		CallNode* node = new CallNode();
+		node->callee = (ExprNode*)$1;
+		$$ = node;
+	}
+	| postfixExpression '(' argumentExpressionList ')' {
+		CallNode* node = new CallNode();
+		node->callee = (ExprNode*)$1;
+		node->arguments = *$3;
+		$$ = node;
+	}
+	| postfixExpression '.' IDENTIFIER {
+		MemberAccessNode* node = new MemberAccessNode();
+		node->object = (ExprNode*)$1;
+		node->member = *$3;
+		$$ = node;
+	}
+	| PORTFOLIO_VALUE {
+		PortfolioStateNode* node = new PortfolioStateNode();
+		node->stateType = PortfolioStateType::PORTFOLIO_VALUE;
+		$$ = node;
+	}
+	| CASH_AVAILABLE {
+		PortfolioStateNode* node = new PortfolioStateNode();
+		node->stateType = PortfolioStateType::CASH_AVAILABLE;
+		$$ = node;
+	}
+	| POSITION_SHARES {
+		PortfolioStateNode* node = new PortfolioStateNode();
+		node->stateType = PortfolioStateType::POSITION_SHARES;
+		$$ = node;
+	}
+	| ENTRY_PRICE {
+		PortfolioStateNode* node = new PortfolioStateNode();
+		node->stateType = PortfolioStateType::ENTRY_PRICE;
+		$$ = node;
+	}
+	| DAYS_IN_POSITION {
+		PortfolioStateNode* node = new PortfolioStateNode();
+		node->stateType = PortfolioStateType::DAYS_IN_POSITION;
+		$$ = node;
+	}
 	;
 
-argument_expression_list
-	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+argumentExpressionList
+	: assignmentExpression {
+		$$ = new vector<ExprNode*>();
+		$$->push_back((ExprNode*)$1);
+	}
+	| argumentExpressionList ',' assignmentExpression {
+		$$ = $1;
+		$$->push_back((ExprNode*)$3);
+	}
 	;
 
-unary_expression
-	: postfix_expression
-	| unary_operator cast_expression
+unaryExpression
+	: postfixExpression {
+		$$ = $1;
+	}
+	| unaryOperator castExpression {
+		UnaryExprNode* node = new UnaryExprNode();
+		node->operand = (ExprNode*)$2;
+		if($1==REF){
+			node->op = UnaryOpType::REF;
+		}
+		else if($1=='+'){
+			node->op = UnaryOpType::ADD;
+		}
+		else if($1=='-'){
+			node->op = UnaryOpType::SUB;
+		}
+		else if($1=='~'){
+			node->op = UnaryOpType::BITNOT;
+		}
+		else if($1=='!'){	
+			node->op = UnaryOpType::LOGICALNOT;
+		}
+		$$ = node;
+	}
 	;
 
-unary_operator
-	: REF
-	| '+'
-	| '-'
-	| '~'
-	| '!'
+unaryOperator
+	: REF {
+		$$ = REF;
+	}
+	| '+' {
+		$$ = '+';
+	}
+	| '-' {
+		$$ = '-';
+	}
+	| '~' {
+		$$ = '~';
+	}
+	| '!' {
+		$$ = '!';
+	}
 	;
 
-cast_expression
-	: unary_expression
-	| '(' type_name ')' cast_expression
+castExpression
+	: unaryExpression {
+		$$ = $1;
+	}
+	| '(' type_name ')' castExpression {
+		CastExprNode* node = new CastExprNode();
+		node->targetType = (TypeNode*)$2;
+		node->expr = (ExprNode*)$4;
+		$$ = node;
+	}
 	;
 
-multiplicative_expression
-	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+multiplicativeExpression
+	: castExpression {
+		$$ = $1;
+	}
+	| multiplicativeExpression '*' castExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "*";
+		$$ = node;
+	}
+	| multiplicativeExpression '/' castExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "/";
+		$$ = node;
+
+	}
+	| multiplicativeExpression '%' castExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "%";
+		$$ = node;
+	}
 	;
 
-additive_expression
-	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+additiveExpression
+	: multiplicativeExpression {
+		$$ = $1;
+	}
+	| additiveExpression '+' multiplicativeExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "+";
+		$$ = node;
+	}
+	| additiveExpression '-' multiplicativeExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "-";
+		$$ = node;
+	}
 	;
 
-shift_expression
-	: additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
+shiftExpression
+	: additiveExpression {
+		$$ = $1;
+	}
+	| shiftExpression LEFT_OP additiveExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "<<";
+		$$ = node;
+	}
+	| shiftExpression RIGHT_OP additiveExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = ">>";
+		$$ = node;
+	}
 	;
 
-relational_expression
-	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression LEQ shift_expression
-	| relational_expression GEQ shift_expression
+relationalExpression
+	: shiftExpression {
+		$$ = $1;
+	}
+	| relationalExpression '<' shiftExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "<";
+		$$ = node;
+	}
+	| relationalExpression '>' shiftExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = ">";
+		$$ = node;
+	}
+	| relationalExpression LEQ shiftExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "<=";
+		$$ = node;
+	}
+	| relationalExpression GEQ shiftExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = ">=";
+		$$ = node;
+	}
 	;
 
-equality_expression
-	: relational_expression
-	| equality_expression EQ relational_expression
-	| equality_expression NEQ relational_expression
+equalityExpression
+	: relationalExpression {
+		$$ = $1;
+	}
+	| equalityExpression EQ relationalExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "==";
+		$$ = node;
+	}
+	| equalityExpression NEQ relationalExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "!=";
+		$$ = node;
+	}
 	;
 
-and_expression
-	: equality_expression
-	| and_expression '&' equality_expression
+andExpression
+	: equalityExpression {
+		$$ = $1;
+	}
+	| andExpression '&' equalityExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "&";
+		$$ = node;
+	}
 	;
 
-exclusive_or_expression
-	: and_expression
-	| exclusive_or_expression '^' and_expression
+exclusiveOrExpression
+	: andExpression {
+		$$ = $1;
+	}
+	| exclusiveOrExpression '^' andExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "^";
+		$$ = node;
+	}
 	;
 
-inclusive_or_expression
-	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+inclusiveOrExpression
+	: exclusiveOrExpression {
+		$$ = $1;
+	}
+	| inclusiveOrExpression '|' exclusiveOrExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "|";
+		$$ = node;
+	}
 	;
 
-logical_and_expression
-	: inclusive_or_expression
-	| logical_and_expression AND inclusive_or_expression
+logicalAndExpression
+	: inclusiveOrExpression {
+		$$ = $1;
+	}
+	| logicalAndExpression AND inclusiveOrExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "AND";
+		$$ = node;
+	}
 	;
 
-logical_or_expression
-	: logical_and_expression
-	| logical_or_expression OR logical_and_expression
+logicalOrExpression
+	: logicalAndExpression {
+		$$ = $1;
+	}
+	| logicalOrExpression OR logicalAndExpression {
+		BinaryExprNode* node = new BinaryExprNode();
+		node->leftOperand = $1;
+		node->rightOperand = $3;
+		node->op = "OR";
+		$$ = node;
+	}
 	;
 
-conditional_expression
-	: logical_or_expression
-	| logical_or_expression '?' expression ':' conditional_expression
+conditionalExpression
+	: logicalOrExpression {
+		$$ = $1;
+	}
+	| logicalOrExpression '?' expression ':' conditionalExpression {
+		ConditionalExprNode* node = new ConditionalExprNode();
+		node->condition = $1;
+		node->thenExpr = $3;
+		node->elseExpr = $5;
+		$$ = node;
+	}
 	;
 
-assignment_expression
-	: conditional_expression
-	| unary_expression '=' assignment_expression
+assignmentExpression
+	: conditionalExpression {
+		$$ = $1;
+	}
+	| unaryExpression '=' assignmentExpression {
+		AssignmentNode* node = new AssignmentNode();
+		node->target = $1;
+		node->value = $3;
+		$$ = node;
+	}
 	;
 
 expression
-	: assignment_expression
-	| expression ',' assignment_expression
+	: assignmentExpression {
+		$$ = $1;
+	}
+	| expression ',' assignmentExpression {
+		CommaExprNode* node;
+		if($1->type == ASTNodeType::CommaExprNode){
+			node = (CommaExprNode*)$1;
+		}
+		else{
+			node = new CommaExprNode();
+			node->expressions.push_back((ExprNode*)$1);
+		}
+		node->expressions.push_back((ExprNode*)$3);
+        $$ = node;
+	}
 	;
 
 declaration
-	: declaration_specifiers ';'
-	| declaration_specifiers init_declarator_list ';'
+	: declarationSpecifiers ';' {
+		DeclNode* node = new DeclNode();
+		node->type = $1;
+	}
+	| declarationSpecifiers initDeclaratorList ';' {
+		DeclNode* node = new DeclNode();
+		node->type = $1;
+		node->decls = $2;
+	}
 	;
 
-declaration_specifiers
-	: type_specifier
-	| CONST type_specifier
+declarationSpecifiers
+	: typeSpecifier {
+		$$ = $1;
+	}
+	| CONST typeSpecifier {
+		$$ = $2;
+		$$->constFlag = true;
+	}
 	;
 
-init_declarator_list
-	: init_declarator
-	| init_declarator_list ',' init_declarator
+initDeclaratorList
+	: initDeclarator {
+		vector<InitDeclarator*>* initVec = new vector<InitDeclarator*>();
+		initVec.push_back($1);
+		$$ = initVec;
+	}
+	| initDeclaratorList ',' initDeclarator {
+		$$ = $1;
+		$$->push_back($3);
+	}
 	;
 
-init_declarator
-	: direct_declarator
-	| direct_declarator '=' initializer
+initDeclarator
+	: direct_declarator  {
+		$$ = new InitDeclarator();
+		$$->declarator = $1;
+	}
+	| direct_declarator '=' initializer {
+		$$ = new InitDeclarator();
+		$$->declarator = $1;
+		$$->initializer = $3;
+	}
 	;
 
 
-type_specifier
-	: VOID
-	| INT
-	| FLOAT
-    | BOOL
-    | STRING
-	| RGM
-	| TIMESERIES
-	| group_specifier
+typeSpecifier
+	: VOID {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::VOID;
+		$$ = node;
+	}
+	| INT  {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::INT;
+		$$ = node;
+	}
+	| FLOAT {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::FLOAT;
+		$$ = node;
+	}
+    | BOOL {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::BOOL;
+		$$ = node;
+	}
+    | STRING {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::STRING;
+		$$ = node;
+	}
+	| RGM {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::RGM;
+		$$ = node;
+	}
+	| TIMESERIES {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::TIMESERIES;
+		$$ = node;
+	}
+	| groupSpecifier {
+		TypeNode* node = new TypeNode();
+		node->type = DataTypes::GROUP;
+		node->userDefinedFlag = true;
+		$$ = node;
+	}
 	;
 
-group_specifier
-	: GROUP IDENTIFIER '{' group_declaration_list '}'
-	| GROUP '{' group_declaration_list '}'
-	| GROUP IDENTIFIER
+groupSpecifier
+	: GROUP IDENTIFIER '{' group_declarationList '}' {
+		GroupNode* node = new GroupNode();
+		node->id = $2;
+		node->members = *$4;
+		$$ = node;
+	}
+	| GROUP '{' group_declarationList '}' {
+		GroupNode* node = new GroupNode();
+		node->members = *$3;
+		$$ = node;
+	}
+	| GROUP IDENTIFIER {
+		GroupNode* node = new GroupNode();
+		node->id = $2;
+		$$ = node;
+	}
 	;
 
-group_declaration_list
-	: group_declaration
-	| group_declaration_list group_declaration
+group_declarationList
+	: group_declaration {
+		vector<GroupDeclaration*>* vec = new vector<GroupDeclaration*>();
+        vec->push_back($1);
+        $$ = vec;
+	}
+	| group_declarationList group_declaration {
+		$$ = $1;
+		$$->push_back($2);
+	}
 	;
 
 group_declaration
-	: specifier_qualifier_list group_declarator_list ';'
+	: specifier_qualifierList group_declaratorList ';' {
+		GroupDeclaration* node = new GroupDeclaration();
+		node->type= $1;
+		node->declarators = *$2;
+        $$ = node;
+	}
 	;
 
-specifier_qualifier_list
-	: type_specifier specifier_qualifier_list
-	| type_specifier
-	| CONST specifier_qualifier_list
-	| CONST
-	;
+specifier_qualifierList
+    : typeSpecifier {
+        $$ = $1;
+    }
+    | CONST specifier_qualifierList {
+        $2->constFlag = true;
+        $$ = $2;
+    }
+    | typeSpecifier specifier_qualifierList {
+        $$ = $1;
+    }
+    | CONST {
+        TypeNode* node = new TypeNode();
+        node->constFlag = true;
+        $$ = node;
+    }
+    ;
 
-group_declarator_list
-	: group_declarator
-	| group_declarator_list ',' group_declarator
+group_declaratorList
+	: group_declarator {
+		vector<GroupDeclarator*>* groupDeclVec = new vector<GroupDeclarator*>();
+        groupDeclVec->push_back($1);
+        $$ = vec;
+	}
+	| group_declaratorList ',' group_declarator {
+		$$ = $1;
+		$$->push_back($3);
+	}
 	;
 
 group_declarator
-	: direct_declarator
-	| ':' conditional_expression
-	| direct_declarator ':' conditional_expression
+	: direct_declarator {
+		GroupDeclarator* node = new GroupDeclarator();
+        node->declarator = $1;
+        $$ = node;
+	}
+	| ':' conditionalExpression {
+		GroupDeclarator* node = new GroupDeclarator();
+        node->isBitfieldOnly = true;
+        node->bitfield = $2;
+        $$ = node;
+	}
+	| direct_declarator ':' conditionalExpression {
+		GroupDeclarator* node = new GroupDeclarator();
+        node->declarator = $1;
+        node->bitfield = $3;
+        $$ = node;
+	}
 	;
 
 direct_declarator
-	: IDENTIFIER
-	| '(' direct_declarator ')'
-	| direct_declarator '[' conditional_expression ']'
-	| direct_declarator '[' ']'
-	| direct_declarator '(' parameter_list ')'
-	| direct_declarator '(' identifier_list ')'
-	| direct_declarator '(' ')'
+	: IDENTIFIER {
+		Declarator* node = new Declarator();
+		node->id = $1;
+		$$ = node;
+	}
+	| '(' direct_declarator ')' {
+		$$ = $2;
+	}
+	| direct_declarator '[' conditionalExpression ']' {
+		$$ = $1;
+		$$->arrayFlag = true;
+		$$->arraySize = $3;
+	}
+	| direct_declarator '[' ']' {
+		$$ = $1;
+		$$->arrayFlag = true;
+	}
+	| direct_declarator '(' parameterList ')' {
+		$$ = $1;
+		$$->funcFlag = true;
+		$$->params = *$3;
+	}
+	| direct_declarator '(' identifierList ')' {
+		$$ = $1;
+		$$->funcFlag = true;
+		// incomplete
+	}
+	| direct_declarator '(' ')' {
+		$$ = $1;
+		$1->funcFlag = true;
+	}
 	;
 
-parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+parameterList
+	: parameter_declaration {
+		vector<ParamNode*>* paramList = new vector<ParamNode>();
+		paramList->push_back($1);
+		$$ = paramList;
+	}
+	| parameterList ',' parameter_declaration {
+		$$ = $1;
+		$$.push_back($3);
+	}
 	;
 
 parameter_declaration
-	: declaration_specifiers direct_declarator
-	| declaration_specifiers direct_abstract_declarator
-	| declaration_specifiers
+	: declarationSpecifiers direct_declarator {
+		ParamNode* node = new ParamNode();
+		node->type = $1;
+		node->id = $2->id;
+		$$ = node;
+	}
+	| declarationSpecifiers direct_abstract_declarator {
+		ParamNode* node = new ParamNode();
+		node->type = $1;
+		$$ = node;
+	}
+	| declarationSpecifiers {
+		ParamNode* node = new ParamNode();
+        node->type = $1;
+        $$ = node;
+	}
 	;
 
-identifier_list
-	: IDENTIFIER
-	| identifier_list ',' IDENTIFIER
+identifierList
+	: IDENTIFIER {
+		IdentifierNode* node = new IdentifierNode();
+		node->id = $1;
+		vector<IdentifierNode*>* idList = new vector<IdentifierNode*>();
+		idList->push_back(node);
+		$$ = idList;
+	}
+	| identifierList ',' IDENTIFIER {
+		$$ = $1;
+		IdentifierNode* node = new IdentifierNode();
+		node->id = $3;
+		$$->push_back(node);
+	}
 	;
 
 type_name
-	: specifier_qualifier_list
-	| specifier_qualifier_list direct_abstract_declarator
-	;
+    : specifier_qualifierList {
+        $$ = $1;
+    }
+    | specifier_qualifierList direct_abstract_declarator {
+		$$ = $1;
+        $$->abstractDeclarator = $2;
+    }
+    ;
 
 direct_abstract_declarator
-	: '(' direct_abstract_declarator ')'
-	| '[' ']'
-	| '[' conditional_expression ']'
-	| direct_abstract_declarator '[' ']'
-	| direct_abstract_declarator '[' conditional_expression ']'
-	| '(' ')'
-	| '(' parameter_list ')'
-	| direct_abstract_declarator '(' ')'
-	| direct_abstract_declarator '(' parameter_list ')'
-	;
+    : '(' direct_abstract_declarator ')' {
+        $$ = $2;
+    }
+    | '[' ']' {
+        Declarator* node = new Declarator();
+        node->arrayFlag = true;
+        $$ = node;
+    }
+    | '[' conditionalExpression ']' {
+        Declarator* node = new Declarator();
+        node->arrayFlag = true;
+        node->arraySize = $2;
+        $$ = node;
+    }
+    | direct_abstract_declarator '[' ']' {
+        $$ = $1;
+        $$->arrayFlag = true;
+    }
+    | direct_abstract_declarator '[' conditionalExpression ']' {
+        $$ = $1;
+        $$->arrayFlag = true;
+        $$->arraySize = $3;
+    }
+    | '(' ')' {
+        Declarator* node = new Declarator();
+        node->funcFlag = true;
+        $$ = node;
+    }
+    | '(' parameterList ')' {
+        Declarator* node = new Declarator();
+        node->funcFlag = true;
+        node->params = *$2;
+        $$ = node;
+    }
+    | direct_abstract_declarator '(' ')' {
+        $$ = $1;
+        $$->funcFlag = true;
+    }
+    | direct_abstract_declarator '(' parameterList ')' {
+        $$ = $1;
+        $$->funcFlag = true;
+        $$->params = *$3;
+    }
+    ;
 
 initializer
-	: assignment_expression
-	| '{' initializer_list '}'
-	| '{' initializer_list ',' '}'
-	;
+    : assignmentExpression {
+        Initializer* node = new Initializer();
+        node->expr = $1;
+        $$ = node;
+    }
+    | '{' initializerList '}' {
+        Initializer* node = new Initializer();
+        node->isList = true;
+        node->elements = *$2;
+        $$ = node;
+    }
+    | '{' initializerList ',' '}' {
+        Initializer* node = new Initializer();
+        node->isList = true;
+        node->elements = *$2;
+        $$ = node;
+    }
+    ;
 
-initializer_list
-	: initializer
-	| initializer_list ',' initializer
+initializerList
+	: initializer {
+		vector<Initializer*>* initVec = new vector<Initializer*>();
+		initVec->push_back($1);
+		$$ = initVec;
+	}
+	| initializerList ',' initializer {
+		$$ = $1;
+		$$->push_back($3);
+	}
 	;
 
 statement
-	: compound_statement
-	| expression_statement
-	| selection_statement
-	| iteration_statement
-	| jump_statement
-	;
-
-compound_statement
-	: '{' '}' {
-		$$ = new ast::CmpdStmtNode();
+	: compoundStatement {
+		$$ = $1;
 	}
-	| '{' statement_list '}' {
-		$$ = new ast::CmpdStmtNode();
+	| expressionStatement {
+		$$ = $1;
 	}
-	| '{' declaration_list '}' {
-		$$ = new ast::CmpdStmtNode();
+	| selectionStatement {
+		$$ = $1;
 	}
-	| '{' declaration_list statement_list '}' {
-		$$ = new ast::CmpdStmtNode();
+	| iterationStatement {
+		$$ = $1;
+	}
+	| jumpStatement {
+		$$ = $1;
 	}
 	;
 
-declaration_list
-	: declaration
-	| declaration_list declaration
-	;
-
-statement_list
-	: statement
-	| statement_list statement
-	;
-
-expression_statement
-	: ';'
-	| expression ';'
-	;
-
-selection_statement
-    : IF '(' expression ')' statement %prec LOWER_THAN_ELSE
-    | IF '(' expression ')' statement ELSE statement
+compoundStatement
+    : '{' '}' {
+        $$ = new CmpdStmtNode();
+    }
+    | '{' statementList '}' {
+        $$ = new CmpdStmtNode();
+        $$->statements = $2; 
+    }
+    | '{' declarationList '}' {
+        $$ = new CmpdStmtNode();
+        $$->declarations = $2;
+    }
+    | '{' declarationList statementList '}' {
+        $$ = new CmpdStmtNode();
+        $$->declarations = $2;
+        $$->statements = $3;
+    }
     ;
 
-iteration_statement
-	: WHILE '(' expression ')' statement
-	| FOR '(' expression_statement expression_statement ')' statement
-	| FOR '(' expression_statement expression_statement expression ')' statement
-	;
-
-jump_statement
-	: CONTINUE ';'
-	| BREAK ';'
-	| RETURN ';'
-	| RETURN expression ';'
-	;
-
-translation_unit
-    : external_declaration {
-        $$ = new ast::ProgramNode();
-        ast::ASTNode* node = $1;
-        if(node->nodeType == ast::ASTNodeType::FuncNode)
-            $$->functions.push_back((ast::FuncNode*)node);
-        else if(node->nodeType == ast::ASTNodeType::DeclNode)
-            $$->globalDeclarations.push_back((ast::DeclNode*)node);
-        else if(node->nodeType == ast::ASTNodeType::StrategyNode)
-            $$->strategies.push_back((ast::StrategyNode*)node);
-
-		progRoot = $$;
+declarationList
+    : declaration {
+        vector<DeclNode*>* vec = new vector<DeclNode*>();
+        vec->push_back($1);
+        $$ = vec;
     }
-    | translation_unit external_declaration {
+    | declarationList declaration {
         $$ = $1;
-        ast::ASTNode* node = $2;
-        if(node->nodeType == ast::ASTNodeType::FuncNode)
-            $$->functions.push_back((ast::FuncNode*)node);
-        else if(node->nodeType == ast::ASTNodeType::DeclNode)
-            $$->globalDeclarations.push_back((ast::DeclNode*)node);
-        else if(node->nodeType == ast::ASTNodeType::StrategyNode)
-            $$->strategies.push_back((ast::StrategyNode*)node);
-		
-		progRoot = $$;
+        $$->push_back($2);
     }
-;
-external_declaration
+    ;
+
+statementList
+	: statement {
+		vector<StmtNode*>* vec = new vector<StmtNode*>();
+		vec->push_back($1);
+		$$ = $1;
+	}
+	| statementList statement {
+		$$ = $1;
+		$$->push_back($2);
+	}
+	;
+
+expressionStatement
+	: ';' {
+		ExprStmtNode* node = new ExprStmtNode();
+		$$ = (StmtNode*)node;
+	}
+	| expression ';' {
+		ExprStmtNode* node = new ExprStmtNode();
+		node->expr = $1;
+		$$ = (StmtNode*)node;
+	}
+	;
+
+selectionStatement
+    : IF '(' expression ')' statement %prec LOWER_THAN_ELSE {
+		IfNode* node = new IfNode();
+		node->condition = $3;
+		node->thenBranch = $5;
+		$$ = (stmtNode*)node;
+	}
+    | IF '(' expression ')' statement ELSE statement {
+		IfNode* node = new IfNode();
+		node->condition = $3;
+		node->thenBranch = $5;
+		node->elseBranch = $7;
+		$$ = (stmtNode*)node;
+	}
+    ;
+
+iterationStatement
+	: WHILE '(' expression ')' statement {
+		WhileNode* node = new WhileNode();
+		node->condition = $3;
+		node->body = $5;
+		$$ = (StmtNode*)node;
+	}
+	| FOR '(' expressionStatement expressionStatement ')' statement {
+		ForNode* node = new ForNode();
+		node->init = $3;
+		node->condition = $4;
+		node->body = $6;
+		$$ = (StmtNode*)node;
+	}
+	| FOR '(' expressionStatement expressionStatement expression ')' statement {
+		ForNode* node = new ForNode();
+		node->init = $3;
+		node->condition = $4;
+		node->increment = $5;
+		node->body = $7;
+		$$ = (StmtNode*)node;
+	}
+	;
+
+jumpStatement
+	: CONTINUE ';' {
+		ContinueNode* node = new ContinueNode();
+		$$ = (StmtNode*)node;
+	}
+	| BREAK ';' {
+		BreakNode* node = new BreakNode();
+		$$ = (StmtNode*)node;
+	}
+	| RETURN ';' {
+		ReturnNode* node = new ReturnNode();
+		$$ = (StmtNode*)node;
+	}
+	| RETURN expression ';' {
+		ReturnNode* node = new ReturnNode();
+		node->expr = $2;
+		$$ = (StmtNode*)node;
+	}
+	;
+
+globalDeclaration
     : function_definition {
-        $$ = new ast::ASTNode();
+        $$ = new ASTNode();
     }
     | declaration {
-        $$ = new ast::ASTNode();
+        $$ = new ASTNode();
     }
-    | strategy_definition {
-        $$ = (ast::ASTNode*)$1;
+    | strategyDefinition {
+        $$ = (ASTNode*)$1;
     }
     ;
 
 function_definition
-	: FUN IDENTIFIER '(' ARROW type_specifier ')' compound_statement
-	| FUN IDENTIFIER '(' parameter_list ARROW type_specifier ')' compound_statement
+	: FUN IDENTIFIER '(' ARROW typeSpecifier ')' compoundStatement {
+		FuncNode* node = new FuncNode();
+		node->name = $2;
+		node->returnType = $5;
+		node->body = $7;
+		$$ = node;
+	}
+	| FUN IDENTIFIER '(' parameterList ARROW typeSpecifier ')' compoundStatement {
+		FuncNode* node = new FuncNode();
+		node->name = $2;
+		node->returnType = $6;
+		node->params = $4;
+		node->body = $8;
+		$$ = node;
+	}
 	;
 
 %%
@@ -578,11 +1501,11 @@ int main() {
     }
 
     if (yyparse() == 0){
-        printf("Parse successful.\n");
+		cout << "parse successful" << endl;
 		progRoot->printNode();
 	}
     else
-        printf("Parse failed.\n");
+        cout << "Parse Failed" << endl;
     
 
     fclose(yyin);
