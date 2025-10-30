@@ -105,6 +105,8 @@ class TimeseriesNode;
 class PortfolioStateNode;
 class CastExprNode;
 class SignalFuncListNode;
+class ASTVisitor;
+
 
 enum DataTypes
 {
@@ -169,6 +171,61 @@ public:
     {
         cout << "ASTNode" << endl;
     }
+
+    virtual void visitAcceptor(ASTVisitor& visitor);
+};
+
+class ASTVisitor{
+public:
+    virtual void visit(StmtNode &node);
+    virtual void visit(DeclNode &node);
+    virtual void visit(ExprNode &node);
+    virtual void visit(ParamNode &node);
+    virtual void visit(Declarator &node);
+    virtual void visit(Initializer &node);
+    virtual void visit(CmpdStmtNode &node);
+    virtual void visit(TypeNode &node);
+    virtual void visit(InitDeclarator &node);
+    virtual void visit(FuncNode &node);
+    virtual void visit(GroupNode &node);
+    virtual void visit(StrategyNode &node);
+    virtual void visit(StratDeclNode &node);
+    virtual void visit(IndicatorNode &node);
+    virtual void visit(RegimeNode &node);
+    virtual void visit(SignalFuncNode &node);
+    virtual void visit(ExprStmtNode &node);
+    virtual void visit(ProgramNode &node);
+    virtual void visit(GroupDeclaration &node);
+    virtual void visit(GroupDeclarator &node);
+    virtual void visit(ASTNode &node);
+    virtual void visit(ReturnNode &node);
+    virtual void visit(BreakNode &node);
+    virtual void visit(ContinueNode &node);
+    virtual void visit(IfNode &node);
+    virtual void visit(WhileNode &node);
+    virtual void visit(ForNode &node);
+    virtual void visit(LiteralIntNode &node);
+    virtual void visit(LiteralFloatNode &node);
+    virtual void visit(LiteralStringNode &node);
+    virtual void visit(LiteralBoolNode &node);
+    virtual void visit(IdentifierNode &node);
+    virtual void visit(BinaryExprNode &node);
+    virtual void visit(UnaryExprNode &node);
+    virtual void visit(AssignmentNode &node);
+    virtual void visit(CallNode &node);
+    virtual void visit(CommaExprNode &node);
+    virtual void visit(MemberAccessNode &node);
+    virtual void visit(ArrayAccessNode &node);
+    virtual void visit(ConditionalExprNode &node);
+    virtual void visit(TimeseriesNode &node);
+    virtual void visit(PortfolioStateNode &node);
+    virtual void visit(CastExprNode &node);
+    virtual void visit(SignalFuncListNode &node);
+};
+
+class SymbolTableVisitor : public ASTVisitor
+{
+    // placeholder for symbol table building using ASTVisitor
 };
 
 class StmtNode : public ASTNode
@@ -177,6 +234,10 @@ public:
     StmtNode()
     {
         nodeType = ASTNodeType::StmtNode;
+    }
+    void visitAcceptor(ASTVisitor &visitor){
+        StmtNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -202,6 +263,11 @@ public:
             cout << "NULL" << endl;
         }
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        CmpdStmtNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class TypeNode : public ASTNode
@@ -221,6 +287,11 @@ public:
         printTabs(tabs);
         cout << "TypeNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        TypeNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class ParamNode : public ASTNode
@@ -237,6 +308,11 @@ public:
     {
         printTabs(tabs);
         cout << "TypeNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ParamNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -258,6 +334,11 @@ public:
         printTabs(tabs);
         cout << "Declarator" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        Declarator currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class Initializer : public ASTNode
@@ -274,6 +355,11 @@ public:
     {
         printTabs(tabs);
         cout << "Initializer" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        Initializer currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -292,6 +378,11 @@ public:
         printTabs(tabs);
         cout << "InitDeclarator" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        InitDeclarator currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class DeclNode : public ASTNode
@@ -309,6 +400,11 @@ public:
         printTabs(tabs);
         cout << "DeclNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        DeclNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 
@@ -325,6 +421,11 @@ public:
         printTabs(tabs);
         cout << "ExprStmtNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ExprStmtNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class ReturnNode : public StmtNode
@@ -340,6 +441,11 @@ public:
         printTabs(tabs);
         cout << "ReturnNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ReturnNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class BreakNode : public StmtNode
@@ -354,6 +460,11 @@ public:
         printTabs(tabs);
         cout << "BreakNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        BreakNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class ContinueNode : public StmtNode
@@ -367,6 +478,11 @@ public:
     {
         printTabs(tabs);
         cout << "ContinueNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ContinueNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -386,6 +502,11 @@ public:
         printTabs(tabs);
         cout << "IfNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        IfNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class WhileNode : public StmtNode
@@ -402,6 +523,11 @@ public:
     {
         printTabs(tabs);
         cout << "WhileNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        WhileNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -422,6 +548,11 @@ public:
         printTabs(tabs);
         cout << "ForNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ForNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class CmpdStmtAsStmtNode : public StmtNode
@@ -437,6 +568,11 @@ public:
         printTabs(tabs);
         cout << "CmpdStmtAsStmtNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        CmpdStmtAsStmtNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class ExprNode : public ASTNode
@@ -450,6 +586,11 @@ public:
     {
         printTabs(tabs);
         cout << "ExprNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ExprNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -466,6 +607,11 @@ public:
         printTabs(tabs);
         cout << "LiteralIntNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        LiteralIntNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class LiteralFloatNode : public ExprNode
@@ -480,6 +626,11 @@ public:
     {
         printTabs(tabs);
         cout << "LiteralFloatNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        LiteralFloatNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -496,6 +647,11 @@ public:
         printTabs(tabs);
         cout << "LiteralFloatNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        LiteralStringNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class LiteralBoolNode : public ExprNode
@@ -510,6 +666,11 @@ public:
     {
         printTabs(tabs);
         cout << "LiteralBoolNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        LiteralBoolNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -528,6 +689,11 @@ public:
         printTabs(tabs);
         cout << "IdentifierNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        IdentifierNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class BinaryExprNode : public ExprNode
@@ -545,6 +711,11 @@ public:
     {
         printTabs(tabs);
         cout << "BinaryExprNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        BinaryExprNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -572,6 +743,11 @@ public:
         printTabs(tabs);
         cout << "UnaryExprNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        UnaryExprNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class AssignmentNode : public ExprNode
@@ -588,6 +764,11 @@ public:
     {
         printTabs(tabs);
         cout << "AssignmentNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        AssignmentNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -606,6 +787,11 @@ public:
         printTabs(tabs);
         cout << "CallNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        CallNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class MemberAccessNode : public ExprNode
@@ -623,6 +809,11 @@ public:
         printTabs(tabs);
         cout << "MemberAccessNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        MemberAccessNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class ArrayAccessNode : public ExprNode
@@ -639,6 +830,11 @@ public:
     {
         printTabs(tabs);
         cout << "ArrayAccessNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ArrayAccessNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -658,6 +854,11 @@ public:
         printTabs(tabs);
         cout << "ConditionalExprNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ConditionalExprNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class TimeseriesNode : public ExprNode
@@ -675,6 +876,11 @@ public:
         printTabs(tabs);
         cout << "TimerSeriesNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        TimeseriesNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class PortfolioStateNode : public ExprNode
@@ -690,6 +896,11 @@ public:
     {
         printTabs(tabs);
         cout << "PortfolioStateNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        PortfolioStateNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -708,6 +919,11 @@ public:
         printTabs(tabs);
         cout << "CastExprNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        CastExprNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class CommaExprNode : public ExprNode
@@ -723,6 +939,11 @@ public:
     {
         printTabs(tabs);
         cout << "CommaExprNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        CommaExprNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -743,6 +964,11 @@ public:
         printTabs(tabs);
         cout << "FuncNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        FuncNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class GroupDeclarator : public ASTNode
@@ -761,6 +987,11 @@ public:
         printTabs(tabs);
         cout << "GroupDeclaratorNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        GroupDeclarator currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class GroupDeclaration : public ASTNode
@@ -777,6 +1008,11 @@ public:
     {
         printTabs(tabs);
         cout << "GroupDeclarationNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        GroupDeclaration currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -796,6 +1032,11 @@ public:
         printTabs(tabs);
         cout << "GroupNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        GroupNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class StratDeclNode : public ASTNode
@@ -814,6 +1055,11 @@ public:
         printTabs(tabs);
         cout << "StratDeclNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        StratDeclNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class IndicatorNode : public ASTNode
@@ -830,6 +1076,11 @@ public:
         printTabs(tabs);
         cout << "IndicatorNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        IndicatorNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class RegimeNode : public ASTNode
@@ -845,6 +1096,11 @@ public:
     {
         printTabs(tabs);
         cout << "RegimeNode" << endl;
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        RegimeNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -864,6 +1120,11 @@ public:
         printTabs(tabs);
         cout << "SignalFuncNode" << endl;
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        SignalFuncNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class SignalFuncListNode : public ASTNode
@@ -882,6 +1143,11 @@ public:
         for(int i=0;i<signals.size();i++){
             signals[i]->printNode(tabs+1);
         }
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        SignalFuncListNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
@@ -923,6 +1189,11 @@ public:
             signals->printNode(tabs+1);
         }
     }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        StrategyNode currObj = *this;
+        visitor.visit(currObj);
+    }
 };
 
 class ProgramNode : public ASTNode
@@ -959,6 +1230,11 @@ public:
         {
             g->printNode(1);
         }
+    }
+    void visitAcceptor(ASTVisitor &visitor)
+    {
+        ProgramNode currObj = *this;
+        visitor.visit(currObj);
     }
 };
 
