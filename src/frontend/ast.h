@@ -7,7 +7,7 @@
 
 using namespace std;
 
-inline void printTabs(int tabs)
+static void printTabs(int tabs)
 {
     for (int i = 0; i < tabs; i++)
     {
@@ -108,14 +108,14 @@ class SignalFuncListNode;
 
 enum DataTypes
 {
-    INT,
-    FLOAT,
-    BOOL,
-    STRING,
-    VOID,
-    RGM,
-    TIMESERIES,
-    GROUP
+    INT_TYPE,
+    FLOAT_TYPE,
+    BOOL_TYPE,
+    STRING_TYPE,
+    VOID_TYPE,
+    RGM_TYPE,
+    TIMESERIES_TYPE,
+    GROUP_TYPE
 };
 
 enum SignalType
@@ -128,35 +128,35 @@ enum SignalType
 
 enum TimeseriesFuncType
 {
-    OPEN,
-    CLOSE,
-    HIGH,
-    LOW,
-    VOLUME,
-    SMA,
-    EMA,
-    RSI,
-    BB,
-    ATR,
-    SDV,
-    MAX,
-    MIN,
-    SUM,
-    MEDIAN,
-    AVG,
-    ABS,
-    CORRELATION,
-    SLOPE,
-    RSQUARED
+    OPEN_TS,
+    CLOSE_TS,
+    HIGH_TS,
+    LOW_TS,
+    VOLUME_TS,
+    SMA_TS,
+    EMA_TS,
+    RSI_TS,
+    BB_TS,
+    ATR_TS,
+    SDV_TS,
+    MAX_TS,
+    MIN_TS,
+    SUM_TS,
+    MEDIAN_TS,
+    AVG_TS,
+    ABS_TS,
+    CORRELATION_TS,
+    SLOPE_TS,
+    RSQUARED_TS
 };
 
 enum PortfolioStateType
 {
-    PORTFOLIO_VALUE,
-    CASH_AVAILABLE,
-    POSITION_SHARES,
-    ENTRY_PRICE,
-    DAYS_IN_POSITION
+    PORTFOLIO_VALUE_STATE,
+    CASH_AVAILABLE_STATE,
+    POSITION_SHARES_STATE,
+    ENTRY_PRICE_STATE,
+    DAYS_IN_POSITION_STATE
 };
 
 class ASTNode
@@ -164,29 +164,38 @@ class ASTNode
 public:
     ASTNodeType nodeType;
     ASTNode() : nodeType(ASTNodeType::ASTNode) {}
-    virtual ~ASTNode() = default;
-
+    
     virtual void printNode()
     {
         cout << "ASTNode" << endl;
     }
 };
-class CmpdStmtNode : public ASTNode
+
+class StmtNode : public ASTNode
+{
+public:
+    StmtNode()
+    {
+        nodeType = ASTNodeType::StmtNode;
+    }
+};
+
+class CmpdStmtNode : public StmtNode
 {
 public:
     vector<DeclNode *> declarations;
     vector<StmtNode *> statements;
-
+    
     CmpdStmtNode()
     {
         nodeType = ASTNodeType::CmpdStmtNode;
     }
-    ~CmpdStmtNode() override = default;
     void printNode(int tabs)
     {
+        printTabs(tabs);
         if (declarations.size() > 0)
         {
-            cout << "compound" << endl;
+            cout << "compound statement" << endl;
         }
         else
         {
@@ -198,16 +207,20 @@ public:
 class TypeNode : public ASTNode
 {
 public:
-    DataTypes type = INT;
+    DataTypes type = INT_TYPE;
     bool constFlag = false;
     string id;
     bool userDefinedFlag = false;
-    
+    Declarator* abstractDecl = NULL;
     TypeNode()
     {
         nodeType = ASTNodeType::TypeNode;
     }
-    ~TypeNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "TypeNode" << endl;
+    }
 };
 
 class ParamNode : public ASTNode
@@ -215,12 +228,16 @@ class ParamNode : public ASTNode
 public:
     TypeNode *type = NULL;
     string id;
-
+    
     ParamNode()
     {
         nodeType = ASTNodeType::ParamNode;
     }
-    ~ParamNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "TypeNode" << endl;
+    }
 };
 
 class Declarator : public ASTNode
@@ -236,7 +253,11 @@ public:
     {
         nodeType = ASTNodeType::Declarator;
     }
-    ~Declarator() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "Declarator" << endl;
+    }
 };
 
 class Initializer : public ASTNode
@@ -249,7 +270,11 @@ public:
     {
         nodeType = ASTNodeType::Initializer;
     }
-    ~Initializer() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "Initializer" << endl;
+    }
 };
 
 class InitDeclarator : public ASTNode
@@ -262,7 +287,11 @@ public:
     {
         nodeType = ASTNodeType::InitDeclarator;
     }
-    ~InitDeclarator() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "InitDeclarator" << endl;
+    }
 };
 
 class DeclNode : public ASTNode
@@ -275,18 +304,13 @@ public:
     {
         nodeType = ASTNodeType::DeclNode;
     }
-    ~DeclNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "DeclNode" << endl;
+    }
 };
 
-class StmtNode : public ASTNode
-{
-public:
-    StmtNode()
-    {
-        nodeType = ASTNodeType::StmtNode;
-    }
-    ~StmtNode() override = default;
-};
 
 class ExprStmtNode : public StmtNode
 {
@@ -296,7 +320,11 @@ public:
     {
         nodeType = ASTNodeType::ExprStmtNode;
     }
-    ~ExprStmtNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ExprStmtNode" << endl;
+    }
 };
 
 class ReturnNode : public StmtNode
@@ -307,7 +335,11 @@ public:
     {
         nodeType = ASTNodeType::ReturnNode;
     }
-    ~ReturnNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ReturnNode" << endl;
+    }
 };
 
 class BreakNode : public StmtNode
@@ -317,7 +349,11 @@ public:
     {
         nodeType = ASTNodeType::BreakNode;
     }
-    ~BreakNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "BreakNode" << endl;
+    }
 };
 
 class ContinueNode : public StmtNode
@@ -327,7 +363,11 @@ public:
     {
         nodeType = ASTNodeType::ContinueNode;
     }
-    ~ContinueNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ContinueNode" << endl;
+    }
 };
 
 class IfNode : public StmtNode
@@ -341,7 +381,11 @@ public:
     {
         nodeType = ASTNodeType::IfNode;
     }
-    ~IfNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "IfNode" << endl;
+    }
 };
 
 class WhileNode : public StmtNode
@@ -354,7 +398,11 @@ public:
     {
         nodeType = ASTNodeType::WhileNode;
     }
-    ~WhileNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "WhileNode" << endl;
+    }
 };
 
 class ForNode : public StmtNode
@@ -369,7 +417,11 @@ public:
     {
         nodeType = ASTNodeType::ForNode;
     }
-    ~ForNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ForNode" << endl;
+    }
 };
 
 class CmpdStmtAsStmtNode : public StmtNode
@@ -380,7 +432,11 @@ public:
     {
         nodeType = ASTNodeType::CmpdStmtNode;
     }
-    ~CmpdStmtAsStmtNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "CmpdStmtAsStmtNode" << endl;
+    }
 };
 
 class ExprNode : public ASTNode
@@ -390,7 +446,11 @@ public:
     {
         nodeType = ASTNodeType::ExprNode;
     }
-    ~ExprNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ExprNode" << endl;
+    }
 };
 
 class LiteralIntNode : public ExprNode
@@ -401,7 +461,11 @@ public:
     {
         nodeType = ASTNodeType::LiteralIntNode;
     }
-    ~LiteralIntNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "LiteralIntNode" << endl;
+    }
 };
 
 class LiteralFloatNode : public ExprNode
@@ -412,7 +476,11 @@ public:
     {
         nodeType = ASTNodeType::LiteralFloatNode;
     }
-    ~LiteralFloatNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "LiteralFloatNode" << endl;
+    }
 };
 
 class LiteralStringNode : public ExprNode
@@ -423,7 +491,11 @@ public:
     {
         nodeType = ASTNodeType::LiteralStringNode;
     }
-    ~LiteralStringNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "LiteralFloatNode" << endl;
+    }
 };
 
 class LiteralBoolNode : public ExprNode
@@ -434,7 +506,11 @@ public:
     {
         nodeType = ASTNodeType::LiteralBoolNode;
     }
-    ~LiteralBoolNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "LiteralBoolNode" << endl;
+    }
 };
 
 class IdentifierNode : public ExprNode
@@ -447,7 +523,11 @@ public:
     {
         nodeType = ASTNodeType::IdentifierNode;
     }
-    ~IdentifierNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "IdentifierNode" << endl;
+    }
 };
 
 class BinaryExprNode : public ExprNode
@@ -461,16 +541,20 @@ public:
     {
         nodeType = ASTNodeType::BinaryExprNode;
     }
-    ~BinaryExprNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "BinaryExprNode" << endl;
+    }
 };
 
 enum UnaryOpType
 {
-    REF,
-    ADD,
-    SUB,
-    BITNOT,
-    LOGICALNOT
+    REF_OP,
+    ADD_OP,
+    SUB_OP,
+    BITNOT_OP,
+    LOGICALNOT_OP
 };
 
 class UnaryExprNode : public ExprNode
@@ -483,7 +567,11 @@ public:
     {
         nodeType = ASTNodeType::UnaryExprNode;
     }
-    ~UnaryExprNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "UnaryExprNode" << endl;
+    }
 };
 
 class AssignmentNode : public ExprNode
@@ -496,7 +584,11 @@ public:
     {
         nodeType = ASTNodeType::AssignmentNode;
     }
-    ~AssignmentNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "AssignmentNode" << endl;
+    }
 };
 
 class CallNode : public ExprNode
@@ -509,7 +601,11 @@ public:
     {
         nodeType = ASTNodeType::CallNode;
     }
-    ~CallNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "CallNode" << endl;
+    }
 };
 
 class MemberAccessNode : public ExprNode
@@ -522,7 +618,11 @@ public:
     {
         nodeType = ASTNodeType::MemberAccessNode;
     }
-    ~MemberAccessNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "MemberAccessNode" << endl;
+    }
 };
 
 class ArrayAccessNode : public ExprNode
@@ -535,7 +635,11 @@ public:
     {
         nodeType = ASTNodeType::ArrayAccessNode;
     }
-    ~ArrayAccessNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ArrayAccessNode" << endl;
+    }
 };
 
 class ConditionalExprNode : public ExprNode
@@ -549,7 +653,11 @@ public:
     {
         nodeType = ASTNodeType::ConditionalExprNode;
     }
-    ~ConditionalExprNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "ConditionalExprNode" << endl;
+    }
 };
 
 class TimeseriesNode : public ExprNode
@@ -562,7 +670,11 @@ public:
     {
         nodeType = ASTNodeType::TimeseriesNode;
     }
-    ~TimeseriesNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "TimerSeriesNode" << endl;
+    }
 };
 
 class PortfolioStateNode : public ExprNode
@@ -574,7 +686,11 @@ public:
     {
         nodeType = ASTNodeType::PortfolioStateNode;
     }
-    ~PortfolioStateNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "PortfolioStateNode" << endl;
+    }
 };
 
 class CastExprNode : public ExprNode
@@ -587,7 +703,11 @@ public:
     {
         nodeType = ASTNodeType::CastExprNode;
     }
-    ~CastExprNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "CastExprNode" << endl;
+    }
 };
 
 class CommaExprNode : public ExprNode
@@ -599,7 +719,11 @@ public:
     {
         nodeType = ASTNodeType::CommaExprNode;
     }
-    ~CommaExprNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "CommaExprNode" << endl;
+    }
 };
 
 class FuncNode : public ASTNode
@@ -614,7 +738,11 @@ public:
     {
         nodeType = ASTNodeType::FuncNode;
     }
-    ~FuncNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "FuncNode" << endl;
+    }
 };
 
 class GroupDeclarator : public ASTNode
@@ -628,7 +756,11 @@ public:
     {
         nodeType = ASTNodeType::GroupDeclarator;
     }
-    ~GroupDeclarator() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "GroupDeclaratorNode" << endl;
+    }
 };
 
 class GroupDeclaration : public ASTNode
@@ -641,7 +773,11 @@ public:
     {
         nodeType = ASTNodeType::GroupDeclaration;
     }
-    ~GroupDeclaration() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "GroupDeclarationNode" << endl;
+    }
 };
 
 class GroupNode : public ASTNode
@@ -655,7 +791,11 @@ public:
     {
         nodeType = ASTNodeType::GroupNode;
     }
-    ~GroupNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "GroupNode" << endl;
+    }
 };
 
 class StratDeclNode : public ASTNode
@@ -669,7 +809,11 @@ public:
     {
         nodeType = ASTNodeType::StratDeclNode;
     }
-    ~StratDeclNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "StratDeclNode" << endl;
+    }
 };
 
 class IndicatorNode : public ASTNode
@@ -681,7 +825,11 @@ public:
     {
         nodeType = ASTNodeType::IndicatorNode;
     }
-    ~IndicatorNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "IndicatorNode" << endl;
+    }
 };
 
 class RegimeNode : public ASTNode
@@ -693,7 +841,11 @@ public:
     {
         nodeType = ASTNodeType::RegimeNode;
     }
-    ~RegimeNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "RegimeNode" << endl;
+    }
 };
 
 class SignalFuncNode : public ASTNode
@@ -707,7 +859,11 @@ public:
     {
         nodeType = ASTNodeType::SignalFuncNode;
     }
-    ~SignalFuncNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "SignalFuncNode" << endl;
+    }
 };
 
 class SignalFuncListNode : public ASTNode
@@ -719,7 +875,14 @@ public:
     {
         nodeType = ASTNodeType::SignalFuncListNode;
     }
-    ~SignalFuncListNode() override = default;
+    void printNode(int tabs)
+    {
+        printTabs(tabs);
+        cout << "SignalFuncListNode" << endl;
+        for(int i=0;i<signals.size();i++){
+            signals[i]->printNode(tabs+1);
+        }
+    }
 };
 
 class StrategyNode : public ASTNode
@@ -735,7 +898,6 @@ public:
     {
         nodeType = ASTNodeType::StrategyNode;
     }
-    ~StrategyNode() override = default;
     void printNode(int tabs = 0)
     {
         printTabs(tabs);
@@ -743,43 +905,22 @@ public:
 
         if (this->declarations)
         {
-            printTabs(tabs + 1);
-            cout << "Declarations: Symbol=" << this->declarations->symbol << ", PositionSize=" << this->declarations->positionSize << "\n";
-
-            printTabs(tabs + 1);
-            cout << "Timeframe: ";
-            for (auto t : this->declarations->timeframe)
-                cout << t << " ";
-            cout << "\n";
+            declarations->printNode(tabs+1);
         }
-
+        
         if (this->indicators && this->indicators->body)
         {
-            printTabs(tabs + 1);
-            cout << "Indicators:\n";
-            this->indicators->body->printNode(tabs + 2);
+            indicators->printNode(tabs+1);
         }
 
         if (this->regimes && this->regimes->body)
         {
-            printTabs(tabs + 1);
-            cout << "Regimes:\n";
-            this->regimes->body->printNode(tabs + 2);
+            regimes->printNode(tabs+1);
         }
 
         if (this->signals)
         {
-            printTabs(tabs + 1);
-            cout << "Signals:\n";
-            for (auto sig : this->signals->signals)
-            {
-                printTabs(tabs + 2);
-                cout << "SignalFunc: ";
-                if (!sig->regimeId.empty())
-                    cout << "Regime=" << sig->regimeId << ", ";
-                if (sig->body)
-                    sig->body->printNode(tabs + 3);
-            }
+            signals->printNode(tabs+1);
         }
     }
 };
@@ -796,29 +937,27 @@ public:
     {
         nodeType = ASTNodeType::ProgramNode;
     }
-    ~ProgramNode() override = default;
-    void printNode()
+    void printNode() override
     {
         cout << "ProgramNode\n";
-
         for (auto f : functions)
         {
-            cout << "Function: " << f->name << "\n";
+            f->printNode(1);
         }
 
         for (auto d : globalDeclarations)
         {
-            cout << "Global Declaration\n";
+            d->printNode(1);
         }
 
         for (auto s : strategies)
         {
-            s->printNode();
+            s->printNode(1);
         }
 
         for (auto g : groups)
         {
-            cout << "Group: " << g->id << "\n";
+            g->printNode(1);
         }
     }
 };

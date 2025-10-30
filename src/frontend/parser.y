@@ -49,7 +49,7 @@ ProgramNode* progRoot;
 	std::vector<ExprNode*>* exprVec;
 	std::vector<StmtNode*>* stmtVec;
 	std::vector<DeclNode*>* declVec;
-	std::vector<initDecl*>* initDeclVec;
+	std::vector<InitDeclarator*>* initDeclVec;
 	std::vector<Initializer*>* initList;
 	std::vector<ParamNode*>* paramVec;
 	std::vector<GroupDeclaration*>* groupDeclList;
@@ -89,7 +89,7 @@ ProgramNode* progRoot;
 %type <expr> logicalAndExpression logicalOrExpression conditionalExpression assignmentExpression timeseries timeseriesExpression
 %type <exprVec> argumentExpressionList identifierList
 
-%type <param> parameter_declaration
+%type <param> parameterDeclaration
 %type <paramVec> parameterList
 
 %type <stmtVec> statementList
@@ -98,20 +98,20 @@ ProgramNode* progRoot;
 %type <func> function_definition
 %type <decl> declaration
 %type <declVec> declarationList
-%type <type> declarationSpecifiers typeSpecifier specifier_qualifierList type_name
+%type <type> declarationSpecifiers typeSpecifier specifier_qualifierList typeName
 
 %type <init> initializer
 %type <initList> initializerList
 %type <initDecl> initDeclarator
 %type <initDeclVec> initDeclaratorList
 
-%type <declarator> direct_declarator direct_abstract_declarator
+%type <declarator> directDeclarator directAbstractDeclarator
 
 %type <group> groupSpecifier
-%type <groupDeclaration> group_declaration
-%type <groupDeclList> group_declarationList
-%type <groupDeclarator> group_declarator
-%type <groupDeclaratorList> group_declaratorList
+%type <groupDeclaration> groupDeclaration
+%type <groupDeclList> groupDeclarationList
+%type <groupDeclarator> groupDeclarator
+%type <groupDeclaratorList> groupDeclaratorList
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
@@ -122,24 +122,30 @@ translationUnit
     : globalDeclaration {
         $$ = new ProgramNode();
         ASTNode* node = $1;
-        if(node->nodeType == ASTNodeType::FuncNode)
+        if(node->nodeType == ASTNodeType::FuncNode){
             $$->functions.push_back((FuncNode*)node);
-        else if(node->nodeType == ASTNodeType::DeclNode)
+		}
+        else if(node->nodeType == ASTNodeType::DeclNode){
             $$->globalDeclarations.push_back((DeclNode*)node);
-        else if(node->nodeType == ASTNodeType::StrategyNode)
+		}
+        else if(node->nodeType == ASTNodeType::StrategyNode){
             $$->strategies.push_back((StrategyNode*)node);
+		}
 		
 		progRoot = $$;
     }
     | translationUnit globalDeclaration {
         $$ = $1;
         ASTNode* node = $2;
-        if(node->nodeType == ASTNodeType::FuncNode)
+        if(node->nodeType == ASTNodeType::FuncNode){
             $$->functions.push_back((FuncNode*)node);
-        else if(node->nodeType == ASTNodeType::DeclNode)
+		}
+        else if(node->nodeType == ASTNodeType::DeclNode){
             $$->globalDeclarations.push_back((DeclNode*)node);
-        else if(node->nodeType == ASTNodeType::StrategyNode)
+		}
+        else if(node->nodeType == ASTNodeType::StrategyNode){
             $$->strategies.push_back((StrategyNode*)node);
+		}
 		progRoot = $$;
     }
 ;
@@ -182,7 +188,7 @@ indicatorSection
     : {$$ = NULL;}
 	| INDICATORS compoundStatement {
 		$$ = new IndicatorNode();
-        $$->body = $2;
+        $$->body = (CmpdStmtNode*)$2;
 	}
     ;
 
@@ -190,7 +196,7 @@ regimeSection
     : {$$ = NULL;}
 	| REGIMES compoundStatement {
 		$$ = new RegimeNode();
-        $$->body = $2;
+        $$->body = (CmpdStmtNode*)$2;
 	}
     ;
 
@@ -206,46 +212,46 @@ signalFunction
     : IDENTIFIER SCOPE ENTRYLONG compoundStatement {
         $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = SIGNAL_ENTRY_LONG;
-        $$->body = $4;
+        $$->signalType = ENTRY_LONG;
+        $$->body = (CmpdStmtNode*)$4;
     }
     | IDENTIFIER SCOPE ENTRYSHORT compoundStatement {
         $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = SIGNAL_ENTRY_SHORT;
-        $$->body = $4;
+        $$->signalType = ENTRY_SHORT;
+        $$->body = (CmpdStmtNode*)$4;
     }
     | IDENTIFIER SCOPE EXITLONG compoundStatement {
         $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = SIGNAL_EXIT_LONG;
-        $$->body = $4;
+        $$->signalType = EXIT_LONG;
+        $$->body = (CmpdStmtNode*)$4;
     }
     | IDENTIFIER SCOPE EXITSHORT compoundStatement {
         $$ = new SignalFuncNode();
         $$->regimeId = *$1;
-        $$->signalType = SIGNAL_EXIT_SHORT;
-        $$->body = $4;
+        $$->signalType = EXIT_SHORT;
+        $$->body = (CmpdStmtNode*)$4;
     }
     | ENTRYLONG compoundStatement {
         $$ = new SignalFuncNode();
-        $$->signalType = SIGNAL_ENTRY_LONG;
-        $$->body = $2;
+        $$->signalType = ENTRY_LONG;
+        $$->body = (CmpdStmtNode*)$2;
     }
     | ENTRYSHORT compoundStatement {
         $$ = new SignalFuncNode();
-        $$->signalType = SIGNAL_ENTRY_SHORT;
-        $$->body = $2;
+        $$->signalType = ENTRY_SHORT;
+        $$->body = (CmpdStmtNode*)$2;
     }
     | EXITLONG compoundStatement {
         $$ = new SignalFuncNode();
-        $$->signalType = SIGNAL_EXIT_LONG;
-        $$->body = $2;
+        $$->signalType = EXIT_LONG;
+        $$->body = (CmpdStmtNode*)$2;
     }
     | EXITSHORT compoundStatement {
         $$ = new SignalFuncNode();
-        $$->signalType = SIGNAL_EXIT_SHORT;
-        $$->body = $2;
+        $$->signalType = EXIT_SHORT;
+        $$->body = (CmpdStmtNode*)$2;
     }
     ;
 
@@ -273,32 +279,32 @@ primaryExpression
 timeseries
     : CLOSE {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::CLOSE;
+        node->funcType = TimeseriesFuncType::CLOSE_TS;
         $$ = node;
 	}
     | OPEN {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::OPEN;
+        node->funcType = TimeseriesFuncType::OPEN_TS;
         $$ = node;
 	}
     | HIGH {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::HIGH;
+        node->funcType = TimeseriesFuncType::HIGH_TS;
         $$ = node;
 	}
     | LOW {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::LOW;
+        node->funcType = TimeseriesFuncType::LOW_TS;
         $$ = node;
 	}
     | VOLUME {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::VOLUME;
+        node->funcType = TimeseriesFuncType::VOLUME_TS;
         $$ = node;
 	}
     | SMA '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SMA;
+        node->funcType = TimeseriesFuncType::SMA_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -307,7 +313,7 @@ timeseries
 	}
     | EMA '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::EMA;
+        node->funcType = TimeseriesFuncType::EMA_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -316,7 +322,7 @@ timeseries
 	}
     | RSI '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::RSI;
+        node->funcType = TimeseriesFuncType::RSI_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -325,7 +331,7 @@ timeseries
 	}
     | BB '(' timeseries ',' INTLIT ',' FLOATLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::BB;
+        node->funcType = TimeseriesFuncType::BB_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		LiteralFloatNode* floatNode = new LiteralFloatNode();
@@ -337,7 +343,7 @@ timeseries
 	}
     | ATR '(' timeseries ',' timeseries ',' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::ATR;
+        node->funcType = TimeseriesFuncType::ATR_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $9;
 		node->args.push_back($3);
@@ -348,7 +354,7 @@ timeseries
 	}
     | SDV '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SDV;
+        node->funcType = TimeseriesFuncType::SDV_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -357,7 +363,7 @@ timeseries
 	}
     | MAX '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::MAX;
+        node->funcType = TimeseriesFuncType::MAX_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -366,7 +372,7 @@ timeseries
 	}
     | MIN '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::MIN;
+        node->funcType = TimeseriesFuncType::MIN_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -375,7 +381,7 @@ timeseries
 	}
     | SUM '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SUM;
+        node->funcType = TimeseriesFuncType::SUM_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -384,7 +390,7 @@ timeseries
 	}
     | MEDIAN '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::MEDIAN;
+        node->funcType = TimeseriesFuncType::MEDIAN_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -393,7 +399,7 @@ timeseries
 	}
     | AVG '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::AVG;
+        node->funcType = TimeseriesFuncType::AVG_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -402,7 +408,7 @@ timeseries
 	}
     | ABS '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::ABS;
+        node->funcType = TimeseriesFuncType::ABS_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -411,7 +417,7 @@ timeseries
 	}
     | CORRELATION '(' timeseries ',' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::CORRELATION;
+        node->funcType = TimeseriesFuncType::CORRELATION_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $7;
 		node->args.push_back($3);
@@ -421,7 +427,7 @@ timeseries
 	}
     | SLOPE '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SLOPE;
+        node->funcType = TimeseriesFuncType::SLOPE_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -430,7 +436,7 @@ timeseries
 	}
     | RSQUARED '(' timeseries ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::RSQUARED;
+        node->funcType = TimeseriesFuncType::RSQUARED_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		node->args.push_back($3);
@@ -445,46 +451,46 @@ timeseriesExpression
 	}
     | SMA '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SMA;
+        node->funcType = TimeseriesFuncType::SMA_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | EMA '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::EMA;
+        node->funcType = TimeseriesFuncType::EMA_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | RSI '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::RSI;
+        node->funcType = TimeseriesFuncType::RSI_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | BB '(' IDENTIFIER ',' INTLIT ',' FLOATLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::BB;
+        node->funcType = TimeseriesFuncType::BB_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		LiteralFloatNode* floatNode = new LiteralFloatNode();
 		floatNode->value = $7;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
 		node->args.push_back(floatNode);
@@ -492,15 +498,15 @@ timeseriesExpression
 	}
     | ATR '(' IDENTIFIER ',' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::ATR;
+        node->funcType = TimeseriesFuncType::ATR_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $9;
 		IdentifierNode* idNode1 = new IdentifierNode();
-		idNode->id = $3;
+		idNode1->id = *$3;
 		IdentifierNode* idNode2 = new IdentifierNode();
-		idNode->id = $5;
+		idNode2->id = *$5;
 		IdentifierNode* idNode3 = new IdentifierNode();
-		idNode->id = $7;
+		idNode3->id = *$7;
 		node->args.push_back(idNode1);
 		node->args.push_back(idNode2);
 		node->args.push_back(idNode3);
@@ -509,90 +515,90 @@ timeseriesExpression
 	}
     | SDV '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SDV;
+        node->funcType = TimeseriesFuncType::SDV_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | MAX '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::MAX;
+        node->funcType = TimeseriesFuncType::MAX_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | MIN '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::MIN;
+        node->funcType = TimeseriesFuncType::MIN_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | SUM '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SUM;
+        node->funcType = TimeseriesFuncType::SUM_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | MEDIAN '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::MEDIAN;
+        node->funcType = TimeseriesFuncType::MEDIAN_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id =*$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | AVG '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::AVG;
+        node->funcType = TimeseriesFuncType::AVG_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | ABS '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::ABS;
+        node->funcType = TimeseriesFuncType::ABS_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | CORRELATION '(' IDENTIFIER ',' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::CORRELATION;
+        node->funcType = TimeseriesFuncType::CORRELATION_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $7;
 		IdentifierNode* idNode1 = new IdentifierNode();
-		idNode->id = $3;
+		idNode1->id = *$3;
 		IdentifierNode* idNode2 = new IdentifierNode();
-		idNode->id = $5;
+		idNode2->id = *$5;
 		node->args.push_back(idNode1);
 		node->args.push_back(idNode2);
 		node->args.push_back(intNode);
@@ -600,22 +606,22 @@ timeseriesExpression
 	}
     | SLOPE '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::SLOPE;
+        node->funcType = TimeseriesFuncType::SLOPE_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
 	}
     | RSQUARED '(' IDENTIFIER ',' INTLIT ')' {
 		TimeseriesNode* node = new TimeseriesNode();
-        node->funcType = TimeseriesFuncType::RSQUARED;
+        node->funcType = TimeseriesFuncType::RSQUARED_TS;
 		LiteralIntNode* intNode = new LiteralIntNode();
 		intNode->value = $5;
 		IdentifierNode* idNode = new IdentifierNode();
-		idNode->id = $3;
+		idNode->id = *$3;
 		node->args.push_back(idNode);
 		node->args.push_back(intNode);
         $$ = node;
@@ -651,27 +657,27 @@ postfixExpression
 	}
 	| PORTFOLIO_VALUE {
 		PortfolioStateNode* node = new PortfolioStateNode();
-		node->stateType = PortfolioStateType::PORTFOLIO_VALUE;
+		node->stateType = PortfolioStateType::PORTFOLIO_VALUE_STATE;
 		$$ = node;
 	}
 	| CASH_AVAILABLE {
 		PortfolioStateNode* node = new PortfolioStateNode();
-		node->stateType = PortfolioStateType::CASH_AVAILABLE;
+		node->stateType = PortfolioStateType::CASH_AVAILABLE_STATE;
 		$$ = node;
 	}
 	| POSITION_SHARES {
 		PortfolioStateNode* node = new PortfolioStateNode();
-		node->stateType = PortfolioStateType::POSITION_SHARES;
+		node->stateType = PortfolioStateType::POSITION_SHARES_STATE;
 		$$ = node;
 	}
 	| ENTRY_PRICE {
 		PortfolioStateNode* node = new PortfolioStateNode();
-		node->stateType = PortfolioStateType::ENTRY_PRICE;
+		node->stateType = PortfolioStateType::ENTRY_PRICE_STATE;
 		$$ = node;
 	}
 	| DAYS_IN_POSITION {
 		PortfolioStateNode* node = new PortfolioStateNode();
-		node->stateType = PortfolioStateType::DAYS_IN_POSITION;
+		node->stateType = PortfolioStateType::DAYS_IN_POSITION_STATE;
 		$$ = node;
 	}
 	;
@@ -695,19 +701,19 @@ unaryExpression
 		UnaryExprNode* node = new UnaryExprNode();
 		node->operand = (ExprNode*)$2;
 		if($1==REF){
-			node->op = UnaryOpType::REF;
+			node->op = UnaryOpType::REF_OP;
 		}
 		else if($1=='+'){
-			node->op = UnaryOpType::ADD;
+			node->op = UnaryOpType::ADD_OP;
 		}
 		else if($1=='-'){
-			node->op = UnaryOpType::SUB;
+			node->op = UnaryOpType::SUB_OP;
 		}
 		else if($1=='~'){
-			node->op = UnaryOpType::BITNOT;
+			node->op = UnaryOpType::BITNOT_OP;
 		}
 		else if($1=='!'){	
-			node->op = UnaryOpType::LOGICALNOT;
+			node->op = UnaryOpType::LOGICALNOT_OP;
 		}
 		$$ = node;
 	}
@@ -735,7 +741,7 @@ castExpression
 	: unaryExpression {
 		$$ = $1;
 	}
-	| '(' type_name ')' castExpression {
+	| '(' typeName ')' castExpression {
 		CastExprNode* node = new CastExprNode();
 		node->targetType = (TypeNode*)$2;
 		node->expr = (ExprNode*)$4;
@@ -961,7 +967,8 @@ expression
 	}
 	| expression ',' assignmentExpression {
 		CommaExprNode* node;
-		if($1->type == ASTNodeType::CommaExprNode){
+
+		if($1->nodeType == ASTNodeType::CommaExprNode){
 			node = (CommaExprNode*)$1;
 		}
 		else{
@@ -981,7 +988,7 @@ declaration
 	| declarationSpecifiers initDeclaratorList ';' {
 		DeclNode* node = new DeclNode();
 		node->type = $1;
-		node->decls = $2;
+		node->decls = *$2;
 	}
 	;
 
@@ -998,7 +1005,7 @@ declarationSpecifiers
 initDeclaratorList
 	: initDeclarator {
 		vector<InitDeclarator*>* initVec = new vector<InitDeclarator*>();
-		initVec.push_back($1);
+		initVec->push_back($1);
 		$$ = initVec;
 	}
 	| initDeclaratorList ',' initDeclarator {
@@ -1008,11 +1015,11 @@ initDeclaratorList
 	;
 
 initDeclarator
-	: direct_declarator  {
+	: directDeclarator  {
 		$$ = new InitDeclarator();
 		$$->declarator = $1;
 	}
-	| direct_declarator '=' initializer {
+	| directDeclarator '=' initializer {
 		$$ = new InitDeclarator();
 		$$->declarator = $1;
 		$$->initializer = $3;
@@ -1023,80 +1030,80 @@ initDeclarator
 typeSpecifier
 	: VOID {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::VOID;
+		node->type = DataTypes::VOID_TYPE;
 		$$ = node;
 	}
 	| INT  {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::INT;
+		node->type = DataTypes::INT_TYPE;
 		$$ = node;
 	}
 	| FLOAT {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::FLOAT;
+		node->type = DataTypes::FLOAT_TYPE;
 		$$ = node;
 	}
     | BOOL {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::BOOL;
+		node->type = DataTypes::BOOL_TYPE;
 		$$ = node;
 	}
     | STRING {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::STRING;
+		node->type = DataTypes::STRING_TYPE;
 		$$ = node;
 	}
 	| RGM {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::RGM;
+		node->type = DataTypes::RGM_TYPE;
 		$$ = node;
 	}
 	| TIMESERIES {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::TIMESERIES;
+		node->type = DataTypes::TIMESERIES_TYPE;
 		$$ = node;
 	}
 	| groupSpecifier {
 		TypeNode* node = new TypeNode();
-		node->type = DataTypes::GROUP;
+		node->type = DataTypes::GROUP_TYPE;
 		node->userDefinedFlag = true;
 		$$ = node;
 	}
 	;
 
 groupSpecifier
-	: GROUP IDENTIFIER '{' group_declarationList '}' {
+	: GROUP IDENTIFIER '{' groupDeclarationList '}' {
 		GroupNode* node = new GroupNode();
-		node->id = $2;
+		node->id = *$2;
 		node->members = *$4;
 		$$ = node;
 	}
-	| GROUP '{' group_declarationList '}' {
+	| GROUP '{' groupDeclarationList '}' {
 		GroupNode* node = new GroupNode();
 		node->members = *$3;
 		$$ = node;
 	}
 	| GROUP IDENTIFIER {
 		GroupNode* node = new GroupNode();
-		node->id = $2;
+		node->id = *$2;
 		$$ = node;
 	}
 	;
 
-group_declarationList
-	: group_declaration {
+groupDeclarationList
+	: groupDeclaration {
 		vector<GroupDeclaration*>* vec = new vector<GroupDeclaration*>();
         vec->push_back($1);
         $$ = vec;
 	}
-	| group_declarationList group_declaration {
+	| groupDeclarationList groupDeclaration {
 		$$ = $1;
 		$$->push_back($2);
 	}
 	;
 
-group_declaration
-	: specifier_qualifierList group_declaratorList ';' {
+groupDeclaration
+	: specifier_qualifierList groupDeclaratorList ';' {
 		GroupDeclaration* node = new GroupDeclaration();
 		node->type= $1;
 		node->declarators = *$2;
@@ -1122,20 +1129,20 @@ specifier_qualifierList
     }
     ;
 
-group_declaratorList
-	: group_declarator {
+groupDeclaratorList
+	: groupDeclarator {
 		vector<GroupDeclarator*>* groupDeclVec = new vector<GroupDeclarator*>();
         groupDeclVec->push_back($1);
-        $$ = vec;
+        $$ = groupDeclVec;
 	}
-	| group_declaratorList ',' group_declarator {
+	| groupDeclaratorList ',' groupDeclarator {
 		$$ = $1;
 		$$->push_back($3);
 	}
 	;
 
-group_declarator
-	: direct_declarator {
+groupDeclarator
+	: directDeclarator {
 		GroupDeclarator* node = new GroupDeclarator();
         node->declarator = $1;
         $$ = node;
@@ -1146,7 +1153,7 @@ group_declarator
         node->bitfield = $2;
         $$ = node;
 	}
-	| direct_declarator ':' conditionalExpression {
+	| directDeclarator ':' conditionalExpression {
 		GroupDeclarator* node = new GroupDeclarator();
         node->declarator = $1;
         node->bitfield = $3;
@@ -1154,60 +1161,60 @@ group_declarator
 	}
 	;
 
-direct_declarator
+directDeclarator
 	: IDENTIFIER {
 		Declarator* node = new Declarator();
-		node->id = $1;
+		node->id = *$1;
 		$$ = node;
 	}
-	| '(' direct_declarator ')' {
+	| '(' directDeclarator ')' {
 		$$ = $2;
 	}
-	| direct_declarator '[' conditionalExpression ']' {
+	| directDeclarator '[' conditionalExpression ']' {
 		$$ = $1;
 		$$->arrayFlag = true;
 		$$->arraySize = $3;
 	}
-	| direct_declarator '[' ']' {
+	| directDeclarator '[' ']' {
 		$$ = $1;
 		$$->arrayFlag = true;
 	}
-	| direct_declarator '(' parameterList ')' {
+	| directDeclarator '(' parameterList ')' {
 		$$ = $1;
 		$$->funcFlag = true;
 		$$->params = *$3;
 	}
-	| direct_declarator '(' identifierList ')' {
+	| directDeclarator '(' identifierList ')' {
 		$$ = $1;
 		$$->funcFlag = true;
 		// incomplete
 	}
-	| direct_declarator '(' ')' {
+	| directDeclarator '(' ')' {
 		$$ = $1;
 		$1->funcFlag = true;
 	}
 	;
 
 parameterList
-	: parameter_declaration {
-		vector<ParamNode*>* paramList = new vector<ParamNode>();
+	: parameterDeclaration {
+		vector<ParamNode*>* paramList = new vector<ParamNode*>();
 		paramList->push_back($1);
 		$$ = paramList;
 	}
-	| parameterList ',' parameter_declaration {
+	| parameterList ',' parameterDeclaration {
 		$$ = $1;
-		$$.push_back($3);
+		$$->push_back($3);
 	}
 	;
 
-parameter_declaration
-	: declarationSpecifiers direct_declarator {
+parameterDeclaration
+	: declarationSpecifiers directDeclarator {
 		ParamNode* node = new ParamNode();
 		node->type = $1;
 		node->id = $2->id;
 		$$ = node;
 	}
-	| declarationSpecifiers direct_abstract_declarator {
+	| declarationSpecifiers directAbstractDeclarator {
 		ParamNode* node = new ParamNode();
 		node->type = $1;
 		$$ = node;
@@ -1220,33 +1227,33 @@ parameter_declaration
 	;
 
 identifierList
-	: IDENTIFIER {
-		IdentifierNode* node = new IdentifierNode();
-		node->id = $1;
-		vector<IdentifierNode*>* idList = new vector<IdentifierNode*>();
-		idList->push_back(node);
-		$$ = idList;
-	}
-	| identifierList ',' IDENTIFIER {
-		$$ = $1;
-		IdentifierNode* node = new IdentifierNode();
-		node->id = $3;
-		$$->push_back(node);
-	}
-	;
-
-type_name
-    : specifier_qualifierList {
-        $$ = $1;
+    : IDENTIFIER {
+        IdentifierNode* node = new IdentifierNode();
+        node->id = *$1;
+        vector<ExprNode*>* idList = new vector<ExprNode*>(); 
+        idList->push_back(node);
+        $$ = idList;
     }
-    | specifier_qualifierList direct_abstract_declarator {
-		$$ = $1;
-        $$->abstractDeclarator = $2;
+    | identifierList ',' IDENTIFIER {
+        $$ = $1;
+        IdentifierNode* node = new IdentifierNode();
+        node->id = *$3;
+        $$->push_back(node);
     }
     ;
 
-direct_abstract_declarator
-    : '(' direct_abstract_declarator ')' {
+typeName
+    : specifier_qualifierList {
+        $$ = $1;
+    }
+    | specifier_qualifierList directAbstractDeclarator {
+		$$ = $1;
+        $$->abstractDecl = $2;
+    }
+    ;
+
+directAbstractDeclarator
+    : '(' directAbstractDeclarator ')' {
         $$ = $2;
     }
     | '[' ']' {
@@ -1260,11 +1267,11 @@ direct_abstract_declarator
         node->arraySize = $2;
         $$ = node;
     }
-    | direct_abstract_declarator '[' ']' {
+    | directAbstractDeclarator '[' ']' {
         $$ = $1;
         $$->arrayFlag = true;
     }
-    | direct_abstract_declarator '[' conditionalExpression ']' {
+    | directAbstractDeclarator '[' conditionalExpression ']' {
         $$ = $1;
         $$->arrayFlag = true;
         $$->arraySize = $3;
@@ -1280,11 +1287,11 @@ direct_abstract_declarator
         node->params = *$2;
         $$ = node;
     }
-    | direct_abstract_declarator '(' ')' {
+    | directAbstractDeclarator '(' ')' {
         $$ = $1;
         $$->funcFlag = true;
     }
-    | direct_abstract_declarator '(' parameterList ')' {
+    | directAbstractDeclarator '(' parameterList ')' {
         $$ = $1;
         $$->funcFlag = true;
         $$->params = *$3;
@@ -1299,14 +1306,12 @@ initializer
     }
     | '{' initializerList '}' {
         Initializer* node = new Initializer();
-        node->isList = true;
-        node->elements = *$2;
+        node->initializerList = *$2;
         $$ = node;
     }
     | '{' initializerList ',' '}' {
         Initializer* node = new Initializer();
-        node->isList = true;
-        node->elements = *$2;
+        node->initializerList = *$2;
         $$ = node;
     }
     ;
@@ -1347,16 +1352,16 @@ compoundStatement
     }
     | '{' statementList '}' {
         $$ = new CmpdStmtNode();
-        $$->statements = $2; 
+        ((CmpdStmtNode*)$$)->statements = *$2; 
     }
     | '{' declarationList '}' {
         $$ = new CmpdStmtNode();
-        $$->declarations = $2;
+        ((CmpdStmtNode*)$$)->declarations = *$2;
     }
     | '{' declarationList statementList '}' {
         $$ = new CmpdStmtNode();
-        $$->declarations = $2;
-        $$->statements = $3;
+        ((CmpdStmtNode*)$$)->declarations = *$2;
+        ((CmpdStmtNode*)$$)->statements = *$3;
     }
     ;
 
@@ -1376,7 +1381,7 @@ statementList
 	: statement {
 		vector<StmtNode*>* vec = new vector<StmtNode*>();
 		vec->push_back($1);
-		$$ = $1;
+		$$ = vec;
 	}
 	| statementList statement {
 		$$ = $1;
@@ -1401,14 +1406,14 @@ selectionStatement
 		IfNode* node = new IfNode();
 		node->condition = $3;
 		node->thenBranch = $5;
-		$$ = (stmtNode*)node;
+		$$ = (StmtNode*)node;
 	}
     | IF '(' expression ')' statement ELSE statement {
 		IfNode* node = new IfNode();
 		node->condition = $3;
 		node->thenBranch = $5;
 		node->elseBranch = $7;
-		$$ = (stmtNode*)node;
+		$$ = (StmtNode*)node;
 	}
     ;
 
@@ -1421,18 +1426,19 @@ iterationStatement
 	}
 	| FOR '(' expressionStatement expressionStatement ')' statement {
 		ForNode* node = new ForNode();
-		node->init = $3;
-		node->condition = $4;
-		node->body = $6;
-		$$ = (StmtNode*)node;
+            
+        node->init = ((ExprStmtNode*)$3)->expr;
+        node->condition = ((ExprStmtNode*)$4)->expr;
+        node->body = (CmpdStmtNode*)$6;
+        $$ = (StmtNode*)node;
 	}
 	| FOR '(' expressionStatement expressionStatement expression ')' statement {
 		ForNode* node = new ForNode();
-		node->init = $3;
-		node->condition = $4;
-		node->increment = $5;
-		node->body = $7;
-		$$ = (StmtNode*)node;
+        node->init = ((ExprStmtNode*)$3)->expr;
+		node->condition = ((ExprStmtNode*)$4)->expr;
+        node->increment = $5;
+        node->body = (CmpdStmtNode*)$7;
+        $$ = (StmtNode*)node;
 	}
 	;
 
@@ -1458,10 +1464,10 @@ jumpStatement
 
 globalDeclaration
     : function_definition {
-        $$ = new ASTNode();
+        $$ = (ASTNode*)$1;
     }
     | declaration {
-        $$ = new ASTNode();
+        $$ = (ASTNode*)$1;
     }
     | strategyDefinition {
         $$ = (ASTNode*)$1;
@@ -1471,17 +1477,17 @@ globalDeclaration
 function_definition
 	: FUN IDENTIFIER '(' ARROW typeSpecifier ')' compoundStatement {
 		FuncNode* node = new FuncNode();
-		node->name = $2;
+		node->name = *$2;
 		node->returnType = $5;
-		node->body = $7;
+		node->body = (CmpdStmtNode*)$7;
 		$$ = node;
 	}
 	| FUN IDENTIFIER '(' parameterList ARROW typeSpecifier ')' compoundStatement {
 		FuncNode* node = new FuncNode();
-		node->name = $2;
+		node->name = *$2;
 		node->returnType = $6;
-		node->params = $4;
-		node->body = $8;
+		node->params = *$4;
+		node->body = (CmpdStmtNode*)$8;
 		$$ = node;
 	}
 	;
