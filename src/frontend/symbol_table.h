@@ -103,9 +103,11 @@ struct FunctionSym : Symbol {
 
 struct StrategySym : Symbol {
     std::string  name;
-    int timeframe;
-    StrategySym(std::string n, std::string  name, int tf, int row, int col)
-        : Symbol(std::move(n), SymKind::Strategy, row, col), name(std::move(name)), timeframe(tf) {}
+    int timeframe[3];
+    StrategySym(std::string n, std::string  name, int tf[3], int row, int col)
+        : Symbol(std::move(n), SymKind::Strategy, row, col), name(std::move(name)) {
+        std::copy(tf, tf + 3, timeframe);
+    }
 };
 
 struct RegimeSym : Symbol {
