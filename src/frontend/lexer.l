@@ -1,7 +1,7 @@
 %{
-#include <iostream>
-#include <string>
 #include "parser.tab.h"
+#include <string.h>
+#include <stdlib.h>
 int col = 1;
 %}
 
@@ -78,6 +78,7 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 ([0-9]+(\.[0-9]+)?)([eE][+-]?[0-9]+)? {col+=strlen(yytext); yylval.floatVal = atof(yytext); return FLOATLIT;}
 "+"                  {col+=strlen(yytext); return '+';}
 "-"                  {col+=strlen(yytext); return '-';}
+"*"                  {col+=strlen(yytext); return '*';}
 "/"                  {col+=strlen(yytext); return '/';}
 "%"                  {col+=strlen(yytext); return '%';}
 "("                  {col+=strlen(yytext); return '(';}
@@ -97,6 +98,7 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 ";"                  {col+=strlen(yytext); return ';';}
 "::"                 {col+=strlen(yytext); return SCOPE;}
 ":"                  {col+=strlen(yytext); return ':';}
+"~"                  {col+=strlen(yytext); return '~';}
 "?"                  {col+=strlen(yytext); return '?';}
 "."                  {col+=strlen(yytext); return '.';}
 "&"                  {col+=strlen(yytext); return '&';}
