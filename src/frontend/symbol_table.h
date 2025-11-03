@@ -94,6 +94,26 @@ struct TimeseriesSym : Symbol {
     }
 };
 
+struct FunctionSym : Symbol {
+    std::vector<std::unique_ptr<Symbol>> parameters;
+    std::unique_ptr<Symbol> returnType;
+    FunctionSym(std::string n, int row, int col)
+        : Symbol(std::move(n), SymKind::Function, row, col) {}
+};
+
+struct StrategySym : Symbol {
+    std::string  name;
+    int timeframe;
+    StrategySym(std::string n, std::string  name, int tf, int row, int col)
+        : Symbol(std::move(n), SymKind::Strategy, row, col), name(std::move(name)), timeframe(tf) {}
+};
+
+struct RegimeSym : Symbol {
+    bool current;
+    RegimeSym(std::string n, int row, int col)
+        : Symbol(std::move(n), SymKind::Regime, row, col), current(false) {}
+};
+
 struct ArraySym : Symbol {
     std::vector<std::unique_ptr<Symbol>> elements;
 
