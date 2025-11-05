@@ -23,7 +23,8 @@ enum class SymKind
     Strategy,
     Regime,
     Group,
-    Array
+    Array,
+    Void
 };
 
 struct Symbol
@@ -142,6 +143,7 @@ struct RegimeSym : Symbol
 struct GroupSym : Symbol
 {
     std::unordered_map<std::string, std::unique_ptr<Symbol>> members;
+    std::string groupTypeName;
     GroupSym(std::string n, int row, int col)
         : Symbol(std::move(n), SymKind::Group, row, col) {}
 };
