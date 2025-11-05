@@ -1204,8 +1204,14 @@ declaration
                 break;
             }
             case DataTypes::GROUP_TYPE: {
-                if (!symtab.currentScope->define(std::make_unique<GroupSym>(name, yylineno, col-1))) {
-                    std::cerr << "Error: redeclaration of group '" << name << "' at line " << yylineno << "\n";
+                std::string groupType = node->type ? node->type->id : "";
+
+                auto groupVarSym = std::make_unique<GroupSym>(name, yylineno, col-1);
+                
+                groupVarSym->groupTypeName = groupType; 
+
+                if (!symtab.currentScope->define(std::move(groupVarSym))) {
+                    std::cerr << "Error: redeclaration of group variable '" << name << "' at line " << yylineno << "\n";
                 }
                 break;
             }
@@ -1298,6 +1304,12 @@ typeSpecifier
         TypeNode* node = new TypeNode();
         node->type = DataTypes::GROUP_TYPE;
         node->userDefinedFlag = true;
+
+        GroupNode* qnode = (GroupNode*)$1;
+        if (qnode) {
+             node->id = qnode->id;
+        }
+
         $$ = node;
     }
     ;
@@ -1714,6 +1726,9 @@ function_definition
             case DataTypes::TIMESERIES_TYPE:
                 funcSym->returnType = std::make_unique<TimeseriesSym>("<ret>", 256, yylineno, col-1);
                 break;
+            case DataTypes::VOID_TYPE:
+                funcSym->returnType = std::make_unique<Symbol>("<ret>", SymKind::Void, yylineno, col-1);
+                break;
             default:
                 funcSym->returnType = std::make_unique<Symbol>("<ret>", SymKind::Array, yylineno, col-1);
                 break;
@@ -1753,6 +1768,9 @@ function_definition
             case DataTypes::TIMESERIES_TYPE:
                 funcSym->returnType = std::make_unique<TimeseriesSym>("<ret>", 256, yylineno, col-1);
                 break;
+            case DataTypes::VOID_TYPE:
+                funcSym->returnType = std::make_unique<Symbol>("<ret>", SymKind::Void, yylineno, col-1);
+                break;
             default:
                 funcSym->returnType = std::make_unique<Symbol>("<ret>", SymKind::Array, yylineno, col-1);
                 break;
@@ -1778,13 +1796,13 @@ function_definition
             } else {
                 switch (pdt) {
                     case DataTypes::INT_TYPE:
-                        funcSym->parameters.push_back(std::make_unique<IntSym>(pname, 0, false, yylineno, col-1));
+                        funcSym->parameters.push_back(std::make_unique<IntSym>(pname, 0, isConst, yylineno, col-1));
                         break;
                     case DataTypes::FLOAT_TYPE:
-                        funcSym->parameters.push_back(std::make_unique<FloatSym>(pname, 0.0, false, yylineno, col-1));
+                        funcSym->parameters.push_back(std::make_unique<FloatSym>(pname, 0.0, isConst, yylineno, col-1));
                         break;
                     case DataTypes::BOOL_TYPE:
-                        funcSym->parameters.push_back(std::make_unique<BoolSym>(pname, false, false, yylineno, col-1));
+                        funcSym->parameters.push_back(std::make_unique<BoolSym>(pname, false, isConst, yylineno, col-1));
                         break;
                     case DataTypes::TIMESERIES_TYPE:
                         funcSym->parameters.push_back(std::make_unique<TimeseriesSym>(pname, 256, yylineno, col-1));
@@ -1825,15 +1843,15 @@ function_definition
             else {
             switch (pdt) {
                     case DataTypes::INT_TYPE:
-                        if (!symtab.currentScope->define(std::make_unique<IntSym>(pname, 0, false, yylineno, col-1)))
+                        if (!symtab.currentScope->define(std::make_unique<IntSym>(pname, 0, isConst, yylineno, col-1)))
                             std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
                             break;
                     case DataTypes::FLOAT_TYPE:
-                        if (!symtab.currentScope->define(std::make_unique<FloatSym>(pname, 0.0, false, yylineno, col-1)))
+                        if (!symtab.currentScope->define(std::make_unique<FloatSym>(pname, 0.0, isConst, yylineno, col-1)))
                             std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
                             break;
                     case DataTypes::BOOL_TYPE:
-                        if (!symtab.currentScope->define(std::make_unique<BoolSym>(pname, false, false, yylineno, col-1)))
+                        if (!symtab.currentScope->define(std::make_unique<BoolSym>(pname, false, isConst, yylineno, col-1)))
                             std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
                             break;
                     case DataTypes::TIMESERIES_TYPE:
