@@ -535,7 +535,7 @@ public:
 class ForNode : public StmtNode
 {
 public:
-    ExprNode *init = NULL;
+    ASTNode *init = NULL;
     ExprNode *condition = NULL;
     ExprNode *increment = NULL;
     StmtNode *body = NULL;
