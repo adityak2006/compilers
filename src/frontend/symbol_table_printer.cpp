@@ -27,6 +27,8 @@ static const char *symKindName(SymKind k)
         return "Regime";
     case SymKind::Group:
         return "Group";
+    case SymKind::Void:
+        return "Void";
     case SymKind::Array:
         return "Array";
     default:
@@ -39,191 +41,144 @@ static std::string indentStr(int indent)
     return std::string(indent * 4, ' ');
 }
 
-// Forward declaration for recursive printing
-static void printSymbol(const Symbol *s, std::ostream &out, int indent = 0);
-
-// Print details for function parameters
-static void printFunctionParams(const FunctionSym *fn, std::ostream &out, int indent)
+static std::string getSymbolDetails(const Symbol *s)
 {
-    if (fn->parameters.empty())
+    std::stringstream ss;
+
+    if (auto is = dynamic_cast<const IntSym *>(s))
     {
-        out << indentStr(indent + 1) << "Parameters: (none)\n";
-        return;
+        ss << "| Value: " << is->value << (is->isConst ? " [CONST]" : " [VAR]");
+    }
+    else if (auto fs = dynamic_cast<const FloatSym *>(s))
+    {
+        ss << "| Value: " << std::fixed << std::setprecision(2) << fs->value << (fs->isConst ? " [CONST]" : " [VAR]");
+    }
+    else if (auto bs = dynamic_cast<const BoolSym *>(s))
+    {
+        ss << "| Value: " << (bs->value ? "true" : "false") << (bs->isConst ? " [CONST]" : " [VAR]");
+    }
+    else if (auto ts = dynamic_cast<const TimeseriesSym *>(s))
+    {
+        ss << "| Capacity: " << ts->capacity << ", Count: " << ts->count;
+    }
+    else if (auto strat = dynamic_cast<const StrategySym *>(s))
+    {
+        ss << "| StratName: \"" << strat->name << "\""
+           << ", Timeframe: {" << strat->timeframe[0] << "d, "
+           << strat->timeframe[1] << "h, " << strat->timeframe[2] << "m}";
+    }
+    else if (auto rg = dynamic_cast<const RegimeSym *>(s))
+    {
+        ss << "| Current: " << (rg->current ? "true" : "false");
+    }
+    else if (auto grp = dynamic_cast<const GroupSym *>(s))
+    {
+        ss << "| Members: " << grp->members.size();
+        if (!grp->groupTypeName.empty())
+        {
+            ss << " | groupTypeName: \"" << grp->groupTypeName << "\"";
+        }
+    }
+    else if (auto arr = dynamic_cast<const ArraySym *>(s))
+    {
+        ss << "| Elements: " << arr->size();
+        ss << " | Dimensions: ";
+        for (size_t i = 0; i < arr->dimensions.size(); ++i)
+        {
+            ss << "[" << arr->dimensions[i] << "]";
+        }
+    }
+    else if (auto fn = dynamic_cast<const FunctionSym *>(s))
+    {
+        ss << "| Params: " << fn->parameters.size();
+        if (fn->returnType)
+        {
+            ss << ", Returns: " << symKindName(fn->returnType->kind);
+        }
     }
 
-    out << indentStr(indent + 1) << "Parameters:\n";
-    for (size_t i = 0; i < fn->parameters.size(); ++i)
-    {
-        const Symbol *param = fn->parameters[i].get();
-        if (!param)
-            continue;
-
-        out << indentStr(indent + 2) << "[param " << i << "] Name: " << param->name
-            << ", Kind: " << symKindName(param->kind)
-            << " (Loc: " << param->loc.line << ":" << param->loc.column << ")";
-
-        // Add type-specific values for simple types if they are constants
-        if (auto is = dynamic_cast<const IntSym *>(param))
-        {
-            if (is->isConst)
-                out << ", Value: " << is->value;
-        }
-        else if (auto fs = dynamic_cast<const FloatSym *>(param))
-        {
-            if (fs->isConst)
-                out << ", Value: " << std::fixed << std::setprecision(2) << fs->value;
-        }
-        else if (auto bs = dynamic_cast<const BoolSym *>(param))
-        {
-            if (bs->isConst)
-                out << ", Value: " << (bs->value ? "true" : "false");
-        }
-        out << "\n";
-    }
+    return ss.str();
 }
 
-// Print a single symbol (and a little type-specific info)
-static void printSymbol(const Symbol *s, std::ostream &out, int indent)
+// Recursively print a symbol and its children
+static void printSymbol(const Symbol *s, std::ostream &out, int indent = 0)
 {
     if (!s)
         return;
 
-    // --- Base Symbol Info ---
-    out << indentStr(indent) << "Name: " << s->name << ", Kind: " << symKindName(s->kind)
-        << " (Loc: " << s->loc.line << ":" << s->loc.column << ")";
+    // Format: p1 (Group) @ 59:15
+    out << indentStr(indent) << s->name << " (" << symKindName(s->kind) << ") "
+        << "@ " << s->loc.line << ":" << s->loc.column;
 
-    // --- Type-specific extras (Same line) ---
-    if (auto is = dynamic_cast<const IntSym *>(s))
+    std::string details = getSymbolDetails(s);
+    if (!details.empty())
     {
-        out << " | Value: " << is->value << (is->isConst ? " [CONST]" : " [VAR]");
+        out << "\n"
+            << indentStr(indent + 1) << "└─ " << details;
     }
-    else if (auto fs = dynamic_cast<const FloatSym *>(s))
-    {
-        out << " | Value: " << std::fixed << std::setprecision(2) << fs->value << (fs->isConst ? " [CONST]" : " [VAR]");
-    }
-    else if (auto bs = dynamic_cast<const BoolSym *>(s))
-    {
-        out << " | Value: " << (bs->value ? "true" : "false") << (bs->isConst ? " [CONST]" : " [VAR]");
-    }
-    else if (auto ts = dynamic_cast<const TimeseriesSym *>(s))
-    {
-        out << " | Capacity: " << ts->capacity << ", Count: " << ts->count;
-    }
-    else if (auto strat = dynamic_cast<const StrategySym *>(s))
-    {
-        // timeframe is an int[3] array: {day, hour, minute}
-        out << " | StratName: \"" << strat->name << "\""
-            << ", Timeframe: {" << strat->timeframe[0] << "d, "
-            << strat->timeframe[1] << "h, " << strat->timeframe[2] << "m}";
-    }
-    else if (auto rg = dynamic_cast<const RegimeSym *>(s))
-    {
-        out << " | Current: " << (rg->current ? "true" : "false");
-    }
-    else if (auto grp = dynamic_cast<const GroupSym *>(s))
-    {
-        out << " | Members: " << grp->members.size();
-    }
-    else if (auto arr = dynamic_cast<const ArraySym *>(s))
-    {
-        out << " | Elements: " << arr->size();
-    }
-    else if (auto fn = dynamic_cast<const FunctionSym *>(s))
-    {
-        out << " | Params: " << fn->parameters.size();
-        if (fn->returnType)
-        {
-            out << ", Returns: " << symKindName(fn->returnType->kind)
-                << " (Loc: " << fn->returnType->loc.line
-                << ":" << fn->returnType->loc.column << ")";
-
-            // If it's a simple type, print its value attributes if const
-            if (auto is = dynamic_cast<const IntSym *>(fn->returnType.get()))
-            {
-                if (is->isConst)
-                    out << ", Value: " << is->value;
-            }
-            else if (auto fs = dynamic_cast<const FloatSym *>(fn->returnType.get()))
-            {
-                if (fs->isConst)
-                    out << ", Value: " << std::fixed << std::setprecision(2) << fs->value;
-            }
-            else if (auto bs = dynamic_cast<const BoolSym *>(fn->returnType.get()))
-            {
-                if (bs->isConst)
-                    out << ", Value: " << (bs->value ? "true" : "false");
-            }
-        }
-    }
-
     out << "\n";
 
 
     if (auto fn = dynamic_cast<const FunctionSym *>(s))
     {
-        printFunctionParams(fn, out, indent);
-    }
-
-    if (auto grp = dynamic_cast<const GroupSym *>(s))
-    {
-        out << indentStr(indent + 1) << "--- Group Members for " << grp->name << " ---\n";
-        for (const auto &m : grp->members)
+        if (!fn->parameters.empty())
         {
-            printSymbol(m.second.get(), out, indent + 2);
+            out << indentStr(indent + 1) << "Parameters:\n";
+            for (const auto &param : fn->parameters)
+            {
+                printSymbol(param.get(), out, indent + 2); // RECURSIVE CALL
+            }
         }
-        out << indentStr(indent + 1) << "--------------------------------\n";
     }
-
-    if (auto arr = dynamic_cast<const ArraySym *>(s))
+    else if (auto grp = dynamic_cast<const GroupSym *>(s))
     {
-        out << indentStr(indent + 1) << "--- Array Elements for " << arr->name << " ---\n";
-        for (size_t i = 0; i < arr->elements.size(); ++i)
+        if (!grp->members.empty())
         {
-            const Symbol *el = arr->elements[i].get();
-            if (!el)
-                continue;
-
-            // Print index tag
-            out << indentStr(indent + 2) << "[ Index " << i << " ]\n";
-
-            // Print symbol details for the element, deeply indented
-            printSymbol(el, out, indent + 3);
+            out << indentStr(indent + 1) << "Members:\n";
+            for (const auto &m : grp->members)
+            {
+                printSymbol(m.second.get(), out, indent + 2); // RECURSIVE CALL
+            }
         }
-        out << indentStr(indent + 1) << "---------------------------------\n";
+    }
+    else if (auto arr = dynamic_cast<const ArraySym *>(s))
+    {
+        if (!arr->elements.empty())
+        {
+            out << indentStr(indent + 1) << "Elements:\n";
+            for (const auto &el : arr->elements)
+            {
+                printSymbol(el.get(), out, indent + 2); // RECURSIVE CALL
+            }
+        }
     }
 }
 
-// Recursively print scope and its children
 static void printScopeRecursive(const Scope *scope, std::ostream &out, int indent = 0, int depth = 0)
 {
     if (!scope)
         return;
 
     out << "\n"
-        << indentStr(indent) << "==========================================\n";
-    out << indentStr(indent) << "SCOPE LEVEL " << depth << " (" << (depth == 0 ? "GLOBAL" : "LOCAL") << ")\n";
-    out << indentStr(indent) << "==========================================\n";
+        << indentStr(indent) << "---";
+    out << " Scope: " << (depth == 0 ? "Global" : "Local") << " (Level " << depth << ")";
+    out << " ---\n";
 
-    // Print symbols in this scope
     if (scope->table.empty())
     {
-        out << indentStr(indent + 1) << "(No symbols defined in this scope)\n";
+        out << indentStr(indent + 1) << "(empty)\n";
     }
     else
     {
-        out << indentStr(indent + 1) << "--- DEFINITIONS ---\n";
         for (const auto &entry : scope->table)
         {
-            const Symbol *s = entry.second.get();
-            printSymbol(s, out, indent + 2);
+            printSymbol(entry.second.get(), out, indent + 1);
         }
-        out << indentStr(indent + 1) << "-------------------\n";
     }
 
-    // Recurse into children
     if (!scope->children.empty())
     {
-        out << indentStr(indent + 1) << "--- CHILD SCOPES ---\n";
+        out << indentStr(indent + 1) << "Child Scopes:\n";
         for (const auto &child : scope->children)
         {
             printScopeRecursive(child.get(), out, indent + 1, depth + 1);
@@ -234,17 +189,17 @@ static void printScopeRecursive(const Scope *scope, std::ostream &out, int inden
 void printSymbolTable(const SymbolTable &st, std::ostream &out)
 {
     out << "\n\n**************************************************\n";
-    out << "COMPILER SYMBOL TABLE DUMP\n";
-    out << "**************************************************\n";
+    out << "          COMPILER SYMBOL TABLE DUMP\n";
+    out << "**************************************************";
 
     if (!st.global)
     {
-        out << " (Empty Symbol Table)\n";
-        out << "**************************************************\n";
-        return;
+        out << "\n(Empty Symbol Table)\n";
     }
-
-    printScopeRecursive(st.global.get(), out, 0, 0);
+    else
+    {
+        printScopeRecursive(st.global.get(), out, 0, 0);
+    }
 
     out << "\n**************************************************\n";
 }
