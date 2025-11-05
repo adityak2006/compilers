@@ -1,5 +1,4 @@
-#ifndef AST_H
-#define AST_H
+#pragma once
 
 #include <string>
 #include <iostream>
@@ -45,7 +44,6 @@ enum class ASTNodeType
     ForNode,
     LiteralIntNode,
     LiteralFloatNode,
-    LiteralStringNode,
     LiteralBoolNode,
     IdentifierNode,
     BinaryExprNode,
@@ -90,7 +88,6 @@ class WhileNode;
 class ForNode;
 class LiteralIntNode;
 class LiteralFloatNode;
-class LiteralStringNode;
 class LiteralBoolNode;
 class IdentifierNode;
 class BinaryExprNode;
@@ -113,7 +110,6 @@ enum DataTypes
     INT_TYPE,
     FLOAT_TYPE,
     BOOL_TYPE,
-    STRING_TYPE,
     VOID_TYPE,
     RGM_TYPE,
     TIMESERIES_TYPE,
@@ -207,7 +203,6 @@ public:
     virtual void visit(ForNode &node);
     virtual void visit(LiteralIntNode &node);
     virtual void visit(LiteralFloatNode &node);
-    virtual void visit(LiteralStringNode &node);
     virtual void visit(LiteralBoolNode &node);
     virtual void visit(IdentifierNode &node);
     virtual void visit(BinaryExprNode &node);
@@ -631,26 +626,6 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         LiteralFloatNode currObj = *this;
-        visitor.visit(currObj);
-    }
-};
-
-class LiteralStringNode : public ExprNode
-{
-public:
-    string value = "";
-    LiteralStringNode()
-    {
-        nodeType = ASTNodeType::LiteralStringNode;
-    }
-    void printNode(int tabs)
-    {
-        printTabs(tabs);
-        cout << "LiteralFloatNode" << endl;
-    }
-    void visitAcceptor(ASTVisitor &visitor)
-    {
-        LiteralStringNode currObj = *this;
         visitor.visit(currObj);
     }
 };
@@ -1239,5 +1214,3 @@ public:
         visitor.visit(currObj);
     }
 };
-
-#endif
