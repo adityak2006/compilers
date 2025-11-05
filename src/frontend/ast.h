@@ -166,16 +166,17 @@ class ASTNode
 public:
     ASTNodeType nodeType;
     ASTNode() : nodeType(ASTNodeType::ASTNode) {}
-    
+
     virtual void printNode()
     {
         cout << "ASTNode" << endl;
     }
 
-    virtual void visitAcceptor(ASTVisitor& visitor);
+    virtual void visitAcceptor(ASTVisitor &visitor);
 };
 
-class ASTVisitor{
+class ASTVisitor
+{
 public:
     virtual void visit(StmtNode &node);
     virtual void visit(DeclNode &node);
@@ -223,10 +224,8 @@ public:
     virtual void visit(SignalFuncListNode &node);
 };
 
-class SymbolTableVisitor : public ASTVisitor
-{
-    // placeholder for symbol table building using ASTVisitor
-};
+// forward declare SymbolTableVisitor (actual implementation lives in symbol_table_visitor.*)
+class SymbolTableVisitor;
 
 class StmtNode : public ASTNode
 {
@@ -235,7 +234,8 @@ public:
     {
         nodeType = ASTNodeType::StmtNode;
     }
-    void visitAcceptor(ASTVisitor &visitor){
+    void visitAcceptor(ASTVisitor &visitor)
+    {
         StmtNode currObj = *this;
         visitor.visit(currObj);
     }
@@ -246,7 +246,7 @@ class CmpdStmtNode : public StmtNode
 public:
     vector<DeclNode *> declarations;
     vector<StmtNode *> statements;
-    
+
     CmpdStmtNode()
     {
         nodeType = ASTNodeType::CmpdStmtNode;
@@ -277,7 +277,7 @@ public:
     bool constFlag = false;
     string id;
     bool userDefinedFlag = false;
-    Declarator* abstractDecl = NULL;
+    Declarator *abstractDecl = NULL;
     TypeNode()
     {
         nodeType = ASTNodeType::TypeNode;
@@ -299,7 +299,8 @@ class ParamNode : public ASTNode
 public:
     TypeNode *type = NULL;
     string id;
-    
+    Declarator *declarator = NULL;
+
     ParamNode()
     {
         nodeType = ASTNodeType::ParamNode;
@@ -321,7 +322,7 @@ class Declarator : public ASTNode
 public:
     string id;
     bool arrayFlag = false;
-    ExprNode *arraySize = NULL;
+    vector<ExprNode *> arraySizes;
     bool funcFlag = false;
     vector<ParamNode *> params;
 
@@ -390,7 +391,7 @@ class DeclNode : public ASTNode
 public:
     TypeNode *type = NULL;
     vector<InitDeclarator *> decls;
-    
+
     DeclNode()
     {
         nodeType = ASTNodeType::DeclNode;
@@ -679,7 +680,7 @@ class IdentifierNode : public ExprNode
 public:
     string id;
     void *symbolEntry = NULL;
-    
+
     IdentifierNode()
     {
         nodeType = ASTNodeType::IdentifierNode;
@@ -1019,7 +1020,7 @@ public:
 class GroupNode : public ASTNode
 {
 public:
-    string id = NULL;
+    string id;
     vector<GroupDeclaration *> members;
     bool isReference = false;
 
@@ -1140,8 +1141,9 @@ public:
     {
         printTabs(tabs);
         cout << "SignalFuncListNode" << endl;
-        for(int i=0;i<signals.size();i++){
-            signals[i]->printNode(tabs+1);
+        for (int i = 0; i < signals.size(); i++)
+        {
+            signals[i]->printNode(tabs + 1);
         }
     }
     void visitAcceptor(ASTVisitor &visitor)
@@ -1171,22 +1173,22 @@ public:
 
         if (this->declarations)
         {
-            declarations->printNode(tabs+1);
+            declarations->printNode(tabs + 1);
         }
-        
+
         if (this->indicators && this->indicators->body)
         {
-            indicators->printNode(tabs+1);
+            indicators->printNode(tabs + 1);
         }
 
         if (this->regimes && this->regimes->body)
         {
-            regimes->printNode(tabs+1);
+            regimes->printNode(tabs + 1);
         }
 
         if (this->signals)
         {
-            signals->printNode(tabs+1);
+            signals->printNode(tabs + 1);
         }
     }
     void visitAcceptor(ASTVisitor &visitor)
