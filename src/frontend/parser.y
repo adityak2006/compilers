@@ -149,6 +149,9 @@ static void populateArrayFromInitializer(ArraySym* arr, Initializer* initNode) {
 %type <expr> logicalAndExpression logicalOrExpression conditionalExpression assignmentExpression timeseries timeseriesExpression
 %type <exprVec> argumentExpressionList identifierList
 
+%type <node> forInitStatement
+%type <expr> optionalExpression
+
 %type <param> parameterDeclaration
 %type <paramVec> parameterList
 
@@ -1619,23 +1622,46 @@ iterationStatement
         node->body = $5;
         $$ = (StmtNode*)node;
     }
-    | FOR '(' expressionStatement expressionStatement ')' statement {
+    |
+    // --- REPLACED OLD FOR-LOOP GRAMMAR WITH THIS ---
+    FOR '(' { symtab.enterScope(); } 
+          forInitStatement 
+          optionalExpression ';' 
+          optionalExpression 
+      ')' statement {
+        
+        ForNode* node = new ForNode();
+        
+        // $4 is the forInitStatement, which is already an ASTNode* (either DeclNode* or ExprStmtNode*)
+        node->init = $4; 
+        
+        // $5 is the optionalExpression (condition)
+        node->condition = $5; 
+        
+        // $7 is the optionalExpression (increment)
+        node->increment = $7; 
+        
+        // $9 is the statement (body)
+        node->body = $9; 
+        
+        $$ = (StmtNode*)node;
+        symtab.exitScope(); // Exit the scope opened for the loop
+    }
+    ;
+    // --- END OF REPLACEMENT ---
 
-        ForNode* node = new ForNode();
-            
-        node->init = ((ExprStmtNode*)$3)->expr;
-        node->condition = ((ExprStmtNode*)$4)->expr;
-        node->body = (CmpdStmtNode*)$6;
-        $$ = (StmtNode*)node;
-    }
-    | FOR '(' expressionStatement expressionStatement expression ')' statement {
-        ForNode* node = new ForNode();
-        node->init = ((ExprStmtNode*)$3)->expr;
-        node->condition = ((ExprStmtNode*)$4)->expr;
-        node->increment = $5;
-        node->body = (CmpdStmtNode*)$7;
-        $$ = (StmtNode*)node;
-    }
+// This rule allows the for-init clause to be either a
+// declaration (int i=0;) or an expression (i=0;).
+forInitStatement
+    : expressionStatement { $$ = $1; }
+    | declaration { $$ = $1; }
+    ;
+
+// This rule allows the condition and increment parts
+// to be either an expression or empty.
+optionalExpression
+    : { $$ = NULL; }
+    | expression { $$ = $1; }
     ;
 
 jumpStatement
