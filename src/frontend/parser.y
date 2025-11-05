@@ -23,6 +23,58 @@ extern char *yytext;
 ProgramNode* progRoot;
 SymbolTable symtab;
 
+
+static void populateArrayFromInitializer(ArraySym* arr, Initializer* initNode) {
+    if (!arr || !initNode) return;
+
+    if (initNode->initializerList.empty()) {
+        if (initNode->expr) {
+            std::cerr << "Warning: line " << yylineno << ": Cannot initialize array '" << arr->name << "' with a non-list expression. Only '{...}' is supported.\n";
+        }
+        return;
+    }
+
+    int init_list_idx = 0;
+
+    for (auto& elem_sym_ptr : arr->elements) {
+        Symbol* elem_sym = elem_sym_ptr.get();
+        if (!elem_sym) continue;
+
+        if (init_list_idx >= initNode->initializerList.size()) {
+            return; 
+        }
+
+        Initializer* current_init = initNode->initializerList[init_list_idx];
+        if (!current_init) continue;
+
+        if (auto nestedArr = dynamic_cast<ArraySym*>(elem_sym)) {
+            if (current_init->expr) {
+                std::cerr << "Warning: line " << yylineno << ": brace-enclosed initializer expected for sub-array of '" << arr->name << "'.\n";
+            } else {
+                populateArrayFromInitializer(nestedArr, current_init);
+            }
+            init_list_idx++;
+        } 
+        else if (current_init->expr) {
+            if (auto lint = dynamic_cast<LiteralIntNode*>(current_init->expr)) {
+                if (auto is = dynamic_cast<IntSym*>(elem_sym)) is->value = lint->value;
+                else if (auto fs = dynamic_cast<FloatSym*>(elem_sym)) fs->value = (double)lint->value;
+                else if (auto bs = dynamic_cast<BoolSym*>(elem_sym)) bs->value = (lint->value != 0);
+            } else if (auto lflt = dynamic_cast<LiteralFloatNode*>(current_init->expr)) {
+                if (auto fs = dynamic_cast<FloatSym*>(elem_sym)) fs->value = lflt->value;
+                else if (auto is = dynamic_cast<IntSym*>(elem_sym)) is->value = (int)lflt->value; // note: truncation
+            } else if (auto lbool = dynamic_cast<LiteralBoolNode*>(current_init->expr)) {
+                if (auto bs = dynamic_cast<BoolSym*>(elem_sym)) bs->value = lbool->value;
+            }
+            
+            init_list_idx++; // Consume this initializer (which was an expression)
+        } else {
+            std::cerr << "Warning: line " << yylineno << ": expected expression for scalar element of '" << arr->name << "', got list.\n";
+            init_list_idx++;
+        }
+    }
+}
+
 %}
 
 
@@ -1032,7 +1084,6 @@ declaration
     node->decls = *$2;
     $$ = node;
 
-    // --- define each declarator in current scope (incremental) ---
     for (InitDeclarator* id : node->decls) {
         if (!id || !id->declarator) continue;
         Declarator* d = id->declarator;
@@ -1042,37 +1093,44 @@ declaration
 
         if (d->arrayFlag) 
         {
-            size_t arrSize = 0;
-            if (d->arraySize) {
-                if (auto lit = dynamic_cast<LiteralIntNode*>(d->arraySize)) {
-                    arrSize = static_cast<size_t>(lit->value);
+            std::vector<int> dims;
+            bool all_dims_valid = true;
+
+            for (ExprNode* sizeExpr : d->arraySizes) {
+                if (auto lit = dynamic_cast<LiteralIntNode*>(sizeExpr)) {
+                    if (lit->value > 0) {
+                        dims.push_back(lit->value);
+                    } else {
+                        std::cerr << "Error: line " << yylineno << ": array dimension for '" << name << "' must be a positive integer.\n";
+                        all_dims_valid = false;
+                        break;
+                    }
                 } else {
-                    arrSize = 0;
-                    std::cerr << "Note: non-literal array size for '" << name
-                            << "' at line " << yylineno << " — treated as 0\n";
+                    std::cerr << "Error: line " << yylineno << ": array dimension for '" << name << "' is not a constant integer expression.\n";
+                    all_dims_valid = false;
+                    break;
                 }
             }
 
-            SymKind elemKind = SymKind::Int;
-            switch (dt) {
-                case DataTypes::FLOAT_TYPE:      elemKind = SymKind::Float; break;
-                case DataTypes::BOOL_TYPE:       elemKind = SymKind::Bool;  break;
-                case DataTypes::TIMESERIES_TYPE: elemKind = SymKind::Timeseries; break;
-                default:                         elemKind = SymKind::Int; break;
+            if (all_dims_valid) {
+                DataTypes baseType = dt; 
+                bool isConstArr = isConst;
+
+                auto arr = std::make_unique<ArraySym>(name, dims, baseType, isConstArr, yylineno, col - 1);
+
+                if (id->initializer) {
+                    populateArrayFromInitializer(arr.get(), id->initializer);
+                }
+
+                if (!symtab.currentScope->define(std::move(arr))) {
+                    std::cerr << "Error: redeclaration of array '" << name
+                              << "' at line " << yylineno << "\n";
+                }
             }
-
-            auto arr = std::make_unique<ArraySym>(name, yylineno, col - 1);
-
-            if (!symtab.currentScope->define(std::move(arr))) {
-                std::cerr << "Error: redeclaration of array '" << name
-                        << "' at line " << yylineno << "\n";
-            }
-
             continue;
         }
 
 
-        // try to extract a literal initializer if present
         bool hadLiteralInit = false;
         int intInit = 0;
         double floatInit = 0.0;
@@ -1094,17 +1152,12 @@ declaration
                 hadLiteralInit = true;
                 floatInit = lflt->value;
             }
-            // bool literal (if you have such a node)
+            // bool literal
             else if (auto lbool = dynamic_cast<LiteralBoolNode*>(initExpr)) {
                 hadLiteralInit = true;
                 boolInit = lbool->value;
             }
-            // string literal
-            else if (auto lstr = dynamic_cast<LiteralStringNode*>(initExpr)) {
-                hadLiteralInit = true;
-                stringInit = lstr->value;
-            } else {
-                // non-literal initializer — you can evaluate later in semantic/IR pass
+            else {
                 std::cerr << "Note: initializer for '" << name << "' at line " << yylineno
                           << " is not a literal; storing default value for now\n";
             }
@@ -1140,7 +1193,6 @@ declaration
                 break;
             }
             case DataTypes::TIMESERIES_TYPE: {
-                // optional: allow numeric initializer to set capacity
                 size_t cap = 256;
                 if (hadLiteralInit && intInit > 0) cap = static_cast<size_t>(intInit);
                 if (!symtab.currentScope->define(std::make_unique<TimeseriesSym>(name, cap, yylineno, col-1))) {
@@ -1362,7 +1414,7 @@ directDeclarator
     | directDeclarator '[' conditionalExpression ']' {
         $$ = $1;
         $$->arrayFlag = true;
-        $$->arraySize = $3;
+        $$->arraySizes.push_back($3);
     }
     | directDeclarator '(' parameterList ')' {
         $$ = $1;
@@ -1372,7 +1424,6 @@ directDeclarator
     | directDeclarator '(' identifierList ')' {
         $$ = $1;
         $$->funcFlag = true;
-        // incomplete
     }
     | directDeclarator '(' ')' {
         $$ = $1;
@@ -1396,12 +1447,13 @@ parameterDeclaration
     : declarationSpecifiers directDeclarator {
         ParamNode* node = new ParamNode();
         node->type = $1;
-        node->id = $2->id;
+        node->declarator = $2;
         $$ = node;
     }
     | declarationSpecifiers {
         ParamNode* node = new ParamNode();
         node->type = $1;
+        node->declarator = nullptr;
         $$ = node;
     }
     ;
@@ -1641,7 +1693,6 @@ function_definition
                 break;
         }
 
-        // define the function symbol in the current (outer) scope
         if (!symtab.currentScope->define(std::move(funcSym))) {
             std::cerr << "Error: redeclaration of function '" << fname << "' at line " << yylineno << "\n";
         }
@@ -1660,10 +1711,8 @@ function_definition
     | FUN IDENTIFIER '(' parameterList ARROW typeSpecifier ')' {
         std::string fname = *$2;
 
-        // Create a FunctionSym and populate its parameter list (signature)
         auto funcSym = std::make_unique<FunctionSym>(fname, yylineno, col-1);
 
-        // Attach return type to funcSym
         TypeNode* retType = $6;
         switch (retType->type) {
             case DataTypes::INT_TYPE:
@@ -1683,63 +1732,93 @@ function_definition
                 break;
         }
 
-        // Build the function-signature parameter list (store copies in FunctionSym)
         for (ParamNode* p : *$4) {
-            if (!p) continue;
-            std::string pname = p->id;
-            DataTypes pdt = p->type ? p->type->type : DataTypes::INT_TYPE;
-            switch (pdt) {
-                case DataTypes::INT_TYPE:
-                    funcSym->parameters.push_back(std::make_unique<IntSym>(pname, 0, false, yylineno, col-1));
-                    break;
-                case DataTypes::FLOAT_TYPE:
-                    funcSym->parameters.push_back(std::make_unique<FloatSym>(pname, 0.0, false, yylineno, col-1));
-                    break;
-                case DataTypes::BOOL_TYPE:
-                    funcSym->parameters.push_back(std::make_unique<BoolSym>(pname, false, false, yylineno, col-1));
-                    break;
-                case DataTypes::TIMESERIES_TYPE:
-                    funcSym->parameters.push_back(std::make_unique<TimeseriesSym>(pname, 256, yylineno, col-1));
-                    break;
-                default:
-                    funcSym->parameters.push_back(std::make_unique<Symbol>(pname, SymKind::Array, yylineno, col-1));
-                    break;
+            if (!p || !p->type || !p->declarator) continue;
+            
+            std::string pname = p->declarator->id;
+            DataTypes pdt = p->type->type;
+            bool isConst = p->type->constFlag;
+
+            if (p->declarator->arrayFlag) {
+                std::vector<int> dims;
+                for (ExprNode* sizeExpr : p->declarator->arraySizes) {
+                    if (auto lit = dynamic_cast<LiteralIntNode*>(sizeExpr)) {
+                        dims.push_back(lit->value);
+                    } else {
+                        dims.push_back(0);
+                    }
+                }
+                funcSym->parameters.push_back(std::make_unique<ArraySym>(pname, dims, pdt, isConst, yylineno, col-1));
+            } else {
+                switch (pdt) {
+                    case DataTypes::INT_TYPE:
+                        funcSym->parameters.push_back(std::make_unique<IntSym>(pname, 0, false, yylineno, col-1));
+                        break;
+                    case DataTypes::FLOAT_TYPE:
+                        funcSym->parameters.push_back(std::make_unique<FloatSym>(pname, 0.0, false, yylineno, col-1));
+                        break;
+                    case DataTypes::BOOL_TYPE:
+                        funcSym->parameters.push_back(std::make_unique<BoolSym>(pname, false, false, yylineno, col-1));
+                        break;
+                    case DataTypes::TIMESERIES_TYPE:
+                        funcSym->parameters.push_back(std::make_unique<TimeseriesSym>(pname, 256, yylineno, col-1));
+                        break;
+                    default:
+                        funcSym->parameters.push_back(std::make_unique<Symbol>(pname, SymKind::Array, yylineno, col-1));
+                        break;
+                }
             }
         }
 
-        // define the function symbol (with signature) in the outer scope
         if (!symtab.currentScope->define(std::move(funcSym))) {
             std::cerr << "Error: redeclaration of function '" << fname << "' at line " << yylineno << "\n";
         }
 
-        // Enter the function body scope and define parameter symbols so the body can use them
         symtab.enterScope();
 
         for (ParamNode* p : *$4) {
-            if (!p) continue;
-            std::string pname = p->id;
-            DataTypes pdt = p->type ? p->type->type : DataTypes::INT_TYPE;
+            if (!p || !p->type || !p->declarator) continue;
+
+            std::string pname = p->declarator->id;
+            DataTypes pdt = p->type->type;
+            bool isConst = p->type->constFlag;
+
+            if (p->declarator->arrayFlag) {
+                std::vector<int> dims;
+                for (ExprNode* sizeExpr : p->declarator->arraySizes) {
+                    if (auto lit = dynamic_cast<LiteralIntNode*>(sizeExpr)) {
+                        dims.push_back(lit->value);
+                    } else {
+                        dims.push_back(0);
+                    }
+                }
+                if (!symtab.currentScope->define(std::make_unique<ArraySym>(pname, dims, pdt, isConst, yylineno, col-1))) {
+                    std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
+                }
+            } 
+            else {
             switch (pdt) {
-                case DataTypes::INT_TYPE:
-                    if (!symtab.currentScope->define(std::make_unique<IntSym>(pname, 0, false, yylineno, col-1)))
-                        std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
-                    break;
-                case DataTypes::FLOAT_TYPE:
-                    if (!symtab.currentScope->define(std::make_unique<FloatSym>(pname, 0.0, false, yylineno, col-1)))
-                        std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
-                    break;
-                case DataTypes::BOOL_TYPE:
-                    if (!symtab.currentScope->define(std::make_unique<BoolSym>(pname, false, false, yylineno, col-1)))
-                        std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
-                    break;
-                case DataTypes::TIMESERIES_TYPE:
-                    if (!symtab.currentScope->define(std::make_unique<TimeseriesSym>(pname, 256, yylineno, col-1)))
-                        std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
-                    break;
-                default:
-                    if (!symtab.currentScope->define(std::make_unique<Symbol>(pname, SymKind::Array, yylineno, col-1)))
-                        std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
-                    break;
+                    case DataTypes::INT_TYPE:
+                        if (!symtab.currentScope->define(std::make_unique<IntSym>(pname, 0, false, yylineno, col-1)))
+                            std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
+                            break;
+                    case DataTypes::FLOAT_TYPE:
+                        if (!symtab.currentScope->define(std::make_unique<FloatSym>(pname, 0.0, false, yylineno, col-1)))
+                            std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
+                            break;
+                    case DataTypes::BOOL_TYPE:
+                        if (!symtab.currentScope->define(std::make_unique<BoolSym>(pname, false, false, yylineno, col-1)))
+                            std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
+                            break;
+                    case DataTypes::TIMESERIES_TYPE:
+                        if (!symtab.currentScope->define(std::make_unique<TimeseriesSym>(pname, 256, yylineno, col-1)))
+                            std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
+                            break;
+                    default:
+                        if (!symtab.currentScope->define(std::make_unique<Symbol>(pname, SymKind::Array, yylineno, col-1)))
+                            std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
+                        break;
+                }
             }
         }
 
