@@ -47,7 +47,6 @@ SymbolTable symtab;
     SignalFuncNode* signalFunc;
     GroupDeclaration* groupDeclaration;
     GroupDeclarator* groupDeclarator;
-    RegimeNode* regimeDeclaration;
     SignalFuncListNode* sigFuncList;
     int intVal;
     float floatVal;
@@ -101,13 +100,12 @@ SymbolTable symtab;
 %type <param> parameterDeclaration
 %type <paramVec> parameterList
 
-%type <stmtVec> statementList
-%type <stmt> compoundStatement statement jumpStatement iterationStatement selectionStatement expressionStatement
+/* %type <stmtVec> statementList */
+%type <stmt> compoundStatement statement jumpStatement iterationStatement selectionStatement expressionStatement indiRegCompoundStatement
 
 %type <func> function_definition
 %type <decl> declaration
-%type <regime> regimeDeclaration
-%type <declVec> declarationList
+/* %type <declVec> declarationList */
 %type <type> declarationSpecifiers typeSpecifier
 
 %type <init> initializer
@@ -229,21 +227,36 @@ strategyDeclarations
     }
     ;
 
+indiRegCompoundStatement
+    : '{' {
+        ;
+    } blockItemList '}' {
+        CmpdStmtNode* node = new CmpdStmtNode();
+        for (ASTNode* item : *$3) {
+            if (!item) continue;
+            if (item->nodeType == ASTNodeType::DeclNode) {
+                node->declarations.push_back((DeclNode*)item);
+            }
+            else {
+                node->statements.push_back((StmtNode*)item);
+            }
+        }
+        delete $3;
+        $$ = node;
+    }
+    ;
+
 indicatorSection
     : {$$ = NULL;}
-    | INDICATORS compoundStatement {
-
-        Scope* saved = symtab.currentScope;
-        symtab.currentScope = symtab.global.get();
+    | INDICATORS indiRegCompoundStatement {
         $$ = new IndicatorNode();
         $$->body = (CmpdStmtNode*)$2;
-        symtab.currentScope = saved;
     }
     ;
 
 regimeSection
     : {$$ = NULL;}
-    | REGIMES compoundStatement {
+    | REGIMES indiRegCompoundStatement {
         $$ = new RegimeNode();
         $$->body = (CmpdStmtNode*)$2;
     }
@@ -1481,15 +1494,6 @@ compoundStatement
             if (!item) continue;
             if (item->nodeType == ASTNodeType::DeclNode) {
                 node->declarations.push_back((DeclNode*)item);
-            }
-            else if (item->nodeType == ASTNodeType::RegimeNode) {
-                // push into regimes vector if present in your CmpdStmtNode
-                #ifdef CMPD_HAS_REGIMES
-                    node->regimes.push_back((RegimeNode*)item);
-                #else
-                    // fall back: treat as a statement (keeps build working even if CmpdStmtNode lacks regimes)
-                    node->statements.push_back((StmtNode*)item);
-                #endif
             }
             else {
                 node->statements.push_back((StmtNode*)item);
