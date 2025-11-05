@@ -22,7 +22,6 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "regimes"            {col+=strlen(yytext); return REGIMES; }
 "rgm"                {col+=strlen(yytext); return RGM; }
 "fun"                {col+=strlen(yytext); return FUN; }
-"REF"                {col+=strlen(yytext); return REF; }
 "group"              {col+=strlen(yytext); return GROUP; }
 "entry_long"         {col+=strlen(yytext); return ENTRYLONG; }
 "entry_short"        {col+=strlen(yytext); return ENTRYSHORT; }
@@ -61,7 +60,6 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "float"              {col+=strlen(yytext); return FLOAT; }
 "bool"               {col+=strlen(yytext); return BOOL; }
 "void"               {col+=strlen(yytext); return VOID; }
-"string"             {col+=strlen(yytext); return STRING; }
 "timeseries"         {col+=strlen(yytext); return TIMESERIES; }
 "AND"|"&&"           {col+=strlen(yytext); return AND; }
 "OR"|"||"            {col+=strlen(yytext); return OR; }
@@ -73,6 +71,10 @@ identifier [a-zA-Z_][a-zA-Z0-9_]*
 "break"              {col+=strlen(yytext); return BREAK; }
 "return"             {col+=strlen(yytext); return RETURN; }
 "const"              {col+=strlen(yytext); return CONST; }
+
+"true"               {col+=strlen(yytext); yylval.intVal = 1; return INTLIT;}
+"false"              {col+=strlen(yytext); yylval.intVal = 0; return INTLIT;}
+
 {identifier}         {col+=strlen(yytext); yylval.id = new std::string(yytext); return IDENTIFIER;}
 {integer}            {col+=strlen(yytext); yylval.intVal = atoi(yytext); return INTLIT;}
 ([0-9]+(\.[0-9]+)?)([eE][+-]?[0-9]+)? {col+=strlen(yytext); yylval.floatVal = atof(yytext); return FLOATLIT;}
