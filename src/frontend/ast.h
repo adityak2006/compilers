@@ -1208,7 +1208,7 @@ public:
             g->printNode(1);
         }
     }
-    void visitAcceptor(ASTVisitor &visitor)
+    void visitAcceptor(ASTVisitor &visitor) override
     {
         ProgramNode currObj = *this;
         visitor.visit(currObj);
