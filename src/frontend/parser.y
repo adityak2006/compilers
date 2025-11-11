@@ -147,7 +147,7 @@ static void populateArrayFromInitializer(ArraySym* arr, Initializer* initNode) {
 %type <expr> primaryExpression postfixExpression expression unaryExpression multiplicativeExpression additiveExpression
 %type <expr> shiftExpression relationalExpression equalityExpression andExpression exclusiveOrExpression inclusiveOrExpression
 %type <expr> logicalAndExpression logicalOrExpression conditionalExpression assignmentExpression timeseries timeseriesExpression
-%type <exprVec> argumentExpressionList identifierList
+%type <exprVec> argumentExpressionList
 
 %type <node> forInitStatement
 %type <expr> optionalExpression
@@ -1099,19 +1099,15 @@ declaration
             std::vector<int> dims;
             bool all_dims_valid = true;
 
-            for (ExprNode* sizeExpr : d->arraySizes) {
-                if (auto lit = dynamic_cast<LiteralIntNode*>(sizeExpr)) {
-                    if (lit->value > 0) {
-                        dims.push_back(lit->value);
-                    } else {
-                        std::cerr << "Error: line " << yylineno << ": array dimension for '" << name << "' must be a positive integer.\n";
-                        all_dims_valid = false;
-                        break;
-                    }
-                } else {
-                    std::cerr << "Error: line " << yylineno << ": array dimension for '" << name << "' is not a constant integer expression.\n";
+            for (int size : d->arraySizes) {
+                if(size > 0)
+                {
+                    dims.push_back(size);
+                }
+                else
+                {
+                    std::cerr << "Error: line " << yylineno << ": array dimension for '" << name << "' must be a positive integer.\n";
                     all_dims_valid = false;
-                    break;
                 }
             }
 
@@ -1426,12 +1422,12 @@ directDeclarator
         node->id = *$1;
         $$ = node;
     }
-    | directDeclarator '[' conditionalExpression ']' {
+    | directDeclarator '[' INTLIT ']' {
         $$ = $1;
         $$->arrayFlag = true;
         $$->arraySizes.push_back($3);
     }
-    | directDeclarator '(' parameterList ')' {
+    /* | directDeclarator '(' parameterList ')' {
         $$ = $1;
         $$->funcFlag = true;
         $$->params = *$3;
@@ -1443,7 +1439,7 @@ directDeclarator
     | directDeclarator '(' ')' {
         $$ = $1;
         $1->funcFlag = true;
-    }
+    } */
     ;
 
 parameterList
@@ -1473,7 +1469,7 @@ parameterDeclaration
     }
     ;
 
-identifierList
+/* identifierList
     : IDENTIFIER {
         IdentifierNode* node = new IdentifierNode();
         node->id = *$1;
@@ -1487,7 +1483,7 @@ identifierList
         node->id = *$3;
         $$->push_back(node);
     }
-    ;
+    ; */
 
 initializer
     : assignmentExpression {
@@ -1572,33 +1568,6 @@ compoundStatement
     }
     ;
 
-
-
-
-/* declarationList
-    : declaration {
-        vector<DeclNode*>* vec = new vector<DeclNode*>();
-        vec->push_back($1);
-        $$ = vec;
-    }
-    | declarationList declaration {
-        $$ = $1;
-        $$->push_back($2);
-    }
-    ;
-
-statementList
-    : statement {
-        vector<StmtNode*>* vec = new vector<StmtNode*>();
-        vec->push_back($1);
-        $$ = vec;
-    }
-    | statementList statement {
-        $$ = $1;
-        $$->push_back($2);
-    }
-    ; */
-
 expressionStatement
     : ';' {
         ExprStmtNode* node = new ExprStmtNode();
@@ -1635,7 +1604,6 @@ iterationStatement
         $$ = (StmtNode*)node;
     }
     |
-    // --- REPLACED OLD FOR-LOOP GRAMMAR WITH THIS ---
     FOR '(' { symtab.enterScope(); } 
           forInitStatement 
           optionalExpression ';' 
@@ -1643,34 +1611,21 @@ iterationStatement
       ')' statement {
         
         ForNode* node = new ForNode();
-        
-        // $4 is the forInitStatement, which is already an ASTNode* (either DeclNode* or ExprStmtNode*)
         node->init = $4; 
-        
-        // $5 is the optionalExpression (condition)
         node->condition = $5; 
-        
-        // $7 is the optionalExpression (increment)
         node->increment = $7; 
-        
-        // $9 is the statement (body)
         node->body = $9; 
         
         $$ = (StmtNode*)node;
-        symtab.exitScope(); // Exit the scope opened for the loop
+        symtab.exitScope();
     }
     ;
-    // --- END OF REPLACEMENT ---
 
-// This rule allows the for-init clause to be either a
-// declaration (int i=0;) or an expression (i=0;).
 forInitStatement
     : expressionStatement { $$ = $1; }
     | declaration { $$ = $1; }
     ;
 
-// This rule allows the condition and increment parts
-// to be either an expression or empty.
 optionalExpression
     : { $$ = NULL; }
     | expression { $$ = $1; }
@@ -1785,12 +1740,8 @@ function_definition
 
             if (p->declarator->arrayFlag) {
                 std::vector<int> dims;
-                for (ExprNode* sizeExpr : p->declarator->arraySizes) {
-                    if (auto lit = dynamic_cast<LiteralIntNode*>(sizeExpr)) {
-                        dims.push_back(lit->value);
-                    } else {
-                        dims.push_back(0);
-                    }
+                for (int size : p->declarator->arraySizes) {
+                    dims.push_back(size);
                 }
                 funcSym->parameters.push_back(std::make_unique<ArraySym>(pname, dims, pdt, isConst, yylineno, col-1));
             } else {
@@ -1829,12 +1780,8 @@ function_definition
 
             if (p->declarator->arrayFlag) {
                 std::vector<int> dims;
-                for (ExprNode* sizeExpr : p->declarator->arraySizes) {
-                    if (auto lit = dynamic_cast<LiteralIntNode*>(sizeExpr)) {
-                        dims.push_back(lit->value);
-                    } else {
-                        dims.push_back(0);
-                    }
+                for (int size : p->declarator->arraySizes) {
+                    dims.push_back(size);
                 }
                 if (!symtab.currentScope->define(std::make_unique<ArraySym>(pname, dims, pdt, isConst, yylineno, col-1))) {
                     std::cerr << "Error: redeclaration of param '" << pname << "' at line " << yylineno << "\n";
