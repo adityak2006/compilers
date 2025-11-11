@@ -317,9 +317,6 @@ class Declarator : public ASTNode
 public:
     string id;
     bool arrayFlag = false;
-    vector<ExprNode *> arraySizes;
-    bool funcFlag = false;
-    vector<ParamNode *> params;
 
     Declarator()
     {
