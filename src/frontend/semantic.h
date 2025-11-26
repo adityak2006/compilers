@@ -19,7 +19,7 @@ public:
 private:
     // Context flags
     bool insideIndicator = false;
-    bool insideStrategy = false;
+    bool insideRegime = false;
     bool insideFunction = false;
 
     // Inferred types & resolutions (we don't modify AST)
