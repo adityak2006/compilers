@@ -56,23 +56,26 @@ Edit the file as necessary. Make sure it is named as input.txt
 
 ```sh
 sudo apt update
-sudo apt install -y build-essential cmake ninja-build flex bison
-sudo apt install -y llvm-dev libmlir-dev || true
+sudo apt install -y build-essential cmake ninja-build flex bison wget
+
+sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" bash 17
+sudo apt install -y libmlir-17-dev mlir-17-tools llvm-17-dev
 ```
 ### 2. Configure
 
 ```sh
 mkdir -p build
 cd build
+
 cmake -G Ninja \
-  -DMLIR_DIR="$(brew --prefix llvm)/lib/cmake/mlir" \
+  -DMLIR_DIR=/usr/lib/llvm-17/lib/cmake/mlir \
   ..
 ```
 
 ### 3. Build
 
 ```sh
-cmake --build . -- -j$(sysctl -n hw.ncpu)
+cmake --build . -- -j$(nproc)
 ```
 
 ### 4. Create Input file inside the build directory
