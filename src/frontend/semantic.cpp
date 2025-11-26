@@ -258,6 +258,10 @@ void SemanticVisitor::visit(FuncNode &node)
     symtab.enterScope();
     insideFunction = true;
 
+    // Store current function return type for return checks
+    DataTypes savedReturnType = currentFunctionReturnType;
+    currentFunctionReturnType = retType;
+
     // Process parameters
     for(auto p : node.params)
     {
@@ -284,10 +288,11 @@ void SemanticVisitor::visit(FuncNode &node)
     if(node.body)
         node.body->visitAcceptor(*this);
 
+    // Restore previous function return type
+    currentFunctionReturnType = savedReturnType;
+
     insideFunction = false;
     symtab.exitScope();
-
-    return;
 }
 
 void SemanticVisitor::visit(IdentifierNode &node)
@@ -533,7 +538,6 @@ void SemanticVisitor::visit(CallNode &node)
         std::ostringstream argStream;
         argStream << fSym->parameters.size() << " arguments, got " << node.arguments.size();
         addErrorFmt("Function '" + id->id + "' expects " + argStream.str(), "");
-        
     }
 
     // Step 6: Check argument types
@@ -598,9 +602,26 @@ void SemanticVisitor::visit(ForNode &node)
 
 void SemanticVisitor::visit(ReturnNode &node)
 {
-    if(node.expr) node.expr->visitAcceptor(*this);
-    return;
+    if(node.expr)
+    {
+        node.expr->visitAcceptor(*this);
+        DataTypes exprType = inferred[node.expr];
+
+        if(exprType != currentFunctionReturnType)
+        {
+            // Allow int -> float promotion if you want
+            if(!(exprType == INT_TYPE && currentFunctionReturnType == FLOAT_TYPE))
+                addError("Return type mismatch in function");
+        }
+    }
+    else
+    {
+        // Return with no expression
+        if(currentFunctionReturnType != VOID_TYPE)
+            addError("Return type mismatch: expected non-void");
+    }
 }
+
 
 void SemanticVisitor::visit(TimeseriesNode &node)
 {
