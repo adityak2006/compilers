@@ -1,8 +1,23 @@
-#include "semantic.h" 
+#include "semantic.h"
 #include <sstream>
 #include <iostream>
 #include <memory>
 #include <typeinfo>
+
+// ================================================================
+// Helper: Create a fresh Symbol* for a parameter given name & type
+// ================================================================
+Symbol* SemanticVisitor::makeSymbolForType(const std::string &name, DataTypes t)
+{
+    switch(t)
+    {
+        case INT_TYPE:        return new IntSym(name, 0, false, 0, 0);
+        case FLOAT_TYPE:      return new FloatSym(name, 0.0, false, 0, 0);
+        case BOOL_TYPE:       return new BoolSym(name, false, false, 0, 0);
+        case TIMESERIES_TYPE: return new TimeseriesSym(name, 0, 0, 0);
+        default:              return new Symbol(name, SymKind::Int, 0, 0);
+    }
+}
 
 void SemanticVisitor::addError(const std::string &msg)
 {
@@ -215,56 +230,63 @@ void SemanticVisitor::visit(CmpdStmtNode &node)
 
 void SemanticVisitor::visit(FuncNode &node)
 {
-    // Register function symbol first so calls in other functions can find it
     std::string fname = node.name;
+
+    // Determine return type (fun name(args -> T))
+    DataTypes retType = VOID_TYPE;
+    if(node.returnType)
+        retType = node.returnType->type;
+
+    // Create FunctionSym using its correct constructor
     auto fSym = std::make_unique<FunctionSym>(fname, 0, 0);
 
-    // Set return type as a Symbol (we'll store DataTypes as concrete Symbol subclass? use generic)
-    // Create a placeholder return type symbol (not strictly necessary)
-    // Define function in current scope
-    if (!define(std::move(fSym)))
+    // Store return type symbol
+    fSym->returnType = std::unique_ptr<Symbol>(
+        makeSymbolForType("__ret", retType)
+    );
+
+    // Define function symbol
+    if(!define(std::move(fSym)))
     {
         addErrorFmt("Redefinition of function '%s'", fname);
-        // continue, but lookup will fail
     }
 
-    // Now visit body in a new scope (parameters should be defined inside)
+    // Retrieve the stored FunctionSym
+    FunctionSym *f = dynamic_cast<FunctionSym*>(lookup(fname));
+
+    // Enter function scope
     symtab.enterScope();
     insideFunction = true;
-    // define parameters
+
+    // Process parameters
     for(auto p : node.params)
     {
         if(!p) continue;
-        std::string pname = p->id;
+
+        std::string pname = p->declarator->id;
         DataTypes ptype = p->type ? p->type->type : INT_TYPE;
-        std::unique_ptr<Symbol> psym;
-        switch(ptype)
+
+        // Add to function symbol parameter list
+        f->parameters.push_back(
+            std::unique_ptr<Symbol>(makeSymbolForType(pname, ptype))
+        );
+
+        // Add to local scope
+        std::unique_ptr<Symbol> localSym(makeSymbolForType(pname, ptype));
+
+        if(!define(std::move(localSym)))
         {
-        case INT_TYPE:
-            psym = std::make_unique<IntSym>(pname, 0, false, 0, 0);
-            break;
-        case FLOAT_TYPE:
-            psym = std::make_unique<FloatSym>(pname, 0.0, false, 0, 0);
-            break;
-        case BOOL_TYPE:
-            psym = std::make_unique<BoolSym>(pname, false, false, 0, 0);
-            break;
-        case TIMESERIES_TYPE:
-            psym = std::make_unique<TimeseriesSym>(pname, 0, 0, 0);
-            break;
-        default:
-            psym = std::make_unique<Symbol>(pname, SymKind::Int, 0, 0);
-            break;
-        }
-        if(!define(std::move(psym)))
-        {
-            addErrorFmt("Parameter '%s' redeclared in function '%s'", pname);
+            addError("Parameter '" + pname + "' redeclared in function '" + fname + "'");
         }
     }
 
-    if(node.body) node.body->visitAcceptor(*this);
+    // Visit body
+    if(node.body)
+        node.body->visitAcceptor(*this);
+
     insideFunction = false;
     symtab.exitScope();
+
     return;
 }
 
@@ -739,8 +761,3 @@ void SemanticVisitor::printErrors() const
     cout << "Semantic Errors (" << errors.size() << "):\n";
     for(const auto &e : errors) cout << "- " << e << "\n";
 }
-
-// int main()
-// {
-//     return 0;
-// }
