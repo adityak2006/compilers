@@ -3,12 +3,22 @@
 }
 
 %{
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Verifier.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "llvm/Support/raw_ostream.h"
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <unordered_set>
 #include "ast.h"
 #include "symbol_table.h"
 #include "symbol_table_printer.h"
+#include "mlir_generator.h"
 
 using namespace std;
 
@@ -21,7 +31,7 @@ extern int yylineno;
 extern char *yytext;
 
 ProgramNode* progRoot;
-SymbolTable symtab;
+::SymbolTable symtab;
 
 
 static void populateArrayFromInitializer(ArraySym* arr, Initializer* initNode) {
@@ -1427,19 +1437,6 @@ directDeclarator
         $$->arrayFlag = true;
         $$->arraySizes.push_back($3);
     }
-    /* | directDeclarator '(' parameterList ')' {
-        $$ = $1;
-        $$->funcFlag = true;
-        $$->params = *$3;
-    }
-    | directDeclarator '(' identifierList ')' {
-        $$ = $1;
-        $$->funcFlag = true;
-    }
-    | directDeclarator '(' ')' {
-        $$ = $1;
-        $1->funcFlag = true;
-    } */
     ;
 
 parameterList
@@ -1468,22 +1465,6 @@ parameterDeclaration
         $$ = node;
     }
     ;
-
-/* identifierList
-    : IDENTIFIER {
-        IdentifierNode* node = new IdentifierNode();
-        node->id = *$1;
-        vector<ExprNode*>* idList = new vector<ExprNode*>(); 
-        idList->push_back(node);
-        $$ = idList;
-    }
-    | identifierList ',' IDENTIFIER {
-        $$ = $1;
-        IdentifierNode* node = new IdentifierNode();
-        node->id = *$3;
-        $$->push_back(node);
-    }
-    ; */
 
 initializer
     : assignmentExpression {
@@ -1841,15 +1822,44 @@ int main() {
         return 1;
     }
 
-    if (yyparse() == 0){
-        cout << "parse successful" << endl;
-        if (progRoot) progRoot->printNode();
-        else cout << "Empty program!" << endl;
-        printSymbolTable(symtab, std::cout);
-    }
-    else
+    MLIRCodegenVisitor visitor;
+
+    if (yyparse() == 0) {
+        cout << "--- Parse Successful ---" << endl;
+
+        if (progRoot) {
+
+            mlir::ModuleOp module = visitor.getModule();
+            visitor.setInsertionPointToStart(visitor.getModuleBody());
+
+            for (auto& decl : progRoot->globalDeclarations) {
+                if (decl) visitor.visit(*decl);
+            }
+            
+            for (auto& func : progRoot->functions) {
+                if (func) visitor.visit(*func);
+            }
+
+        } else {
+            cout << "Empty program!" << endl;
+            return 1;
+        }
+
+        mlir::ModuleOp module = visitor.getModule();
+
+        if (mlir::failed(mlir::verify(module))) {
+            cerr << "--- MLIR Verification FAILED ---" << endl;
+            module.print(llvm::errs()); // Print bad MLIR to stderr
+            return -1;
+        }
+
+        cout << "--- MLIR Verification Succeeded ---" << endl;
+        
+        module.print(llvm::outs());
+
+    } else {
         cout << "Parse Failed" << endl;
-    
+    }
 
     fclose(yyin);
     return 0;

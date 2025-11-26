@@ -317,6 +317,7 @@ class Declarator : public ASTNode
 public:
     string id;
     bool arrayFlag = false;
+    vector<int> arraySizes;
 
     Declarator()
     {
