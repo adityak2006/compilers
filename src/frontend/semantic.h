@@ -63,4 +63,6 @@ private:
     void visit(ConditionalExprNode &node) override;
     void visit(CastExprNode &node) override;
     void visit(CommaExprNode &node) override;
+
+    DataTypes currentFunctionReturnType = VOID_TYPE; // tracks current function's return type
 };
