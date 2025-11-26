@@ -1,0 +1,85 @@
+strategy MovingAverageCrossover 
+{
+    symbol = "AAPL";
+    timeframe = {0,0,1};
+    p_size = 200;
+
+    indicators
+    {
+        timeseries fast_ma = SMA(close, 10);
+        timeseries slow_ma = SMA(close, 20);
+        timeseries volume_avg = SMA(volume, 15);
+        timeseries atr14 = ATR(high, low, close, 14);
+    }
+
+    regimes 
+    {
+        rgm trending = atr14 > SMA(atr14, 20) * 1.5;
+        rgm ranging = atr14 <= SMA(atr14, 20) * 1.5;
+    }
+
+    entry_long {
+        fast_ma > slow_ma AND
+        rsi_value > 40 AND
+        rsi_value < 75 &&
+        volume > volume_avg;
+    }
+
+    exit_long {
+        fast_ma < slow_ma OR
+        rsi_value > 80 OR
+        rsi_value < 25 OR
+        profit > 12.0 OR
+        loss > 6.0;
+    }
+
+    entry_short {
+        fast_ma < slow_ma AND
+        rsi_value > 25 AND
+        rsi_value < 60 AND
+        volume > volume_avg;
+    }
+    
+    exit_short {
+        fast_ma > slow_ma OR
+        rsi_value < 20 OR
+        rsi_value > 75 OR
+        profit[0] > 10.0 OR
+        loss > 5.0;
+    }
+}
+
+fun compute(int val -> int)
+{
+    int res = 0;
+    int i = 1;
+
+    while (i < 4) {
+        if (val > i) {
+            res = res + (val * i);
+        } else {
+            res = res - i;
+        }
+        i = i + 1;
+    }
+    return res;
+}
+
+fun test( -> void)
+{
+    int total = 0;
+    
+    for (int r = 0; r < 5; r = r + 1) {
+        
+        for (int c = 0; c < 5; c = c + 1) {
+            
+            if (r == c) {
+                int y = compute(r);
+                total = total + y;
+            } else {
+                total = total + (r * c);
+            }
+        }
+    }
+    return;
+}
