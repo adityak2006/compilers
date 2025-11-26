@@ -8,7 +8,7 @@
 
 class SemanticVisitor : public ASTVisitor {
 public:
-    ::SymbolTable symtab;
+    SymbolTable symtab;
 
     // Run analysis on program; returns true if no semantic errors.
     bool analyze(ProgramNode* root);
@@ -19,7 +19,7 @@ public:
 private:
     // Context flags
     bool insideIndicator = false;
-    bool insideRegime = false;
+    bool insideStrategy = false;
     bool insideFunction = false;
 
     // Inferred types & resolutions (we don't modify AST)
@@ -29,6 +29,7 @@ private:
     // Helpers
     void addError(const std::string &msg);
     void addErrorFmt(const std::string &fmt, const std::string &arg);
+    Symbol* makeSymbolForType(const std::string &name, DataTypes t);
     std::string typeToString(DataTypes t) const;
     bool isNumeric(DataTypes t) const;
     bool areComparable(DataTypes a, DataTypes b) const;
