@@ -24,6 +24,7 @@ set_source_files_properties(${BISON_MyParser_OUTPUTS} PROPERTIES LANGUAGE CXX)
 
 add_executable(my_compiler
     ${SOURCE_DIR}/ast.cpp
+    ${SOURCE_DIR}/semantic.cpp
 
     ${BISON_MyParser_OUTPUTS}
     ${FLEX_MyLexer_OUTPUTS}

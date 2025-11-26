@@ -19,6 +19,7 @@
 #include "symbol_table.h"
 #include "symbol_table_printer.h"
 #include "mlir_generator.h"
+#include "semantic.h"
 
 using namespace std;
 
@@ -1826,6 +1827,9 @@ int main() {
 
     if (yyparse() == 0) {
         cout << "--- Parse Successful ---" << endl;
+        SemanticVisitor semVisitor;
+        progRoot->visitAcceptor(semVisitor);
+        semVisitor.printErrors();
 
         if (progRoot) {
 

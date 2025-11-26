@@ -128,12 +128,9 @@ public:
                 if (initDecl->initializer && initDecl->initializer->expr)
                 {
                     Attribute val = getConstantAttr(initDecl->initializer->expr, baseType);
-                    else
-                    {
-                        RankedTensorType tensorTy =
-                            RankedTensorType::get({}, baseType);
-                        initAttr = DenseElementsAttr::get(tensorTy, val);
-                    }
+                    RankedTensorType tensorTy =
+                        RankedTensorType::get({}, baseType);
+                    initAttr = DenseElementsAttr::get(tensorTy, val);
                 }
 
                 IntegerAttr alignment = nullptr;
@@ -580,67 +577,61 @@ public:
 
         if (isFloat)
         {
-            switch (op)
-            {
-            case "+":
+            if (op == "+")
                 return builder.create<arith::AddFOp>(builder.getUnknownLoc(), l, r);
-            case "-":
+            if (op == "-")
                 return builder.create<arith::SubFOp>(builder.getUnknownLoc(), l, r);
-            case "*":
+            if (op == "*")
                 return builder.create<arith::MulFOp>(builder.getUnknownLoc(), l, r);
-            case "/":
+            if (op == "/")
                 return builder.create<arith::DivFOp>(builder.getUnknownLoc(), l, r);
-            case "==":
+            if (op == "==")
                 return builder.create<arith::CmpFOp>(builder.getUnknownLoc(), arith::CmpFPredicate::OEQ, l, r);
-            case "!=":
+            if (op == "!=")
                 return builder.create<arith::CmpFOp>(builder.getUnknownLoc(), arith::CmpFPredicate::ONE, l, r);
-            case "<":
+            if (op == "<")
                 return builder.create<arith::CmpFOp>(builder.getUnknownLoc(), arith::CmpFPredicate::OLT, l, r);
-            case "<=":
+            if (op == "<=")
                 return builder.create<arith::CmpFOp>(builder.getUnknownLoc(), arith::CmpFPredicate::OLE, l, r);
-            case ">":
+            if (op == ">")
                 return builder.create<arith::CmpFOp>(builder.getUnknownLoc(), arith::CmpFPredicate::OGT, l, r);
-            case ">=":
+            if (op == ">=")
                 return builder.create<arith::CmpFOp>(builder.getUnknownLoc(), arith::CmpFPredicate::OGE, l, r);
-            }
         }
         else
         {
-            switch(op)
-            {
-            case "+":
+            if (op == "+")
                 return builder.create<arith::AddIOp>(builder.getUnknownLoc(), l, r);
-            case "-":
+            if (op == "-")
                 return builder.create<arith::SubIOp>(builder.getUnknownLoc(), l, r);
-            case "*":
+            if (op == "*")
                 return builder.create<arith::MulIOp>(builder.getUnknownLoc(), l, r);
-            case "/":
+            if (op == "/")
                 return builder.create<arith::DivSIOp>(builder.getUnknownLoc(), l, r); // S = Signed
-            case "%":
+            if (op == "%")
                 return builder.create<arith::RemSIOp>(builder.getUnknownLoc(), l, r); // S = Signed
-            case "&":
+            if (op == "&")
                 return builder.create<arith::AndIOp>(builder.getUnknownLoc(), l, r);
-            case "|":
+            if (op == "|")
                 return builder.create<arith::OrIOp>(builder.getUnknownLoc(), l, r);
-            case "^":
+            if (op == "^")
                 return builder.create<arith::XOrIOp>(builder.getUnknownLoc(), l, r);
-            case "<<":
+            if (op == "<<")
                 return builder.create<arith::ShLIOp>(builder.getUnknownLoc(), l, r);
-            case ">>":
+            if (op == ">>")
                 return builder.create<arith::ShRSIOp>(builder.getUnknownLoc(), l, r); // S = Signed
-            case "==":
+            if (op == "==")
                 return builder.create<arith::CmpIOp>(builder.getUnknownLoc(), arith::CmpIPredicate::eq, l, r);
-            case "!=":
+            if (op == "!=")
                 return builder.create<arith::CmpIOp>(builder.getUnknownLoc(), arith::CmpIPredicate::ne, l, r);
-            case "<":
+            if (op == "<")
                 return builder.create<arith::CmpIOp>(builder.getUnknownLoc(), arith::CmpIPredicate::slt, l, r);
-            case "<=":
+            if (op == "<=")
                 return builder.create<arith::CmpIOp>(builder.getUnknownLoc(), arith::CmpIPredicate::sle, l, r);
-            case ">":
+            if (op == ">")
                 return builder.create<arith::CmpIOp>(builder.getUnknownLoc(), arith::CmpIPredicate::sgt, l, r);
-            case ">=":
+            if (op == ">=")
                 return builder.create<arith::CmpIOp>(builder.getUnknownLoc(), arith::CmpIPredicate::sge, l, r);
-            }
         }
         return l;
     }

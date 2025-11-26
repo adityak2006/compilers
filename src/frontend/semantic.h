@@ -8,7 +8,7 @@
 
 class SemanticVisitor : public ASTVisitor {
 public:
-    SymbolTable symtab;
+    ::SymbolTable symtab;
 
     // Run analysis on program; returns true if no semantic errors.
     bool analyze(ProgramNode* root);
