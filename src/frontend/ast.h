@@ -157,6 +157,11 @@ enum PortfolioStateType
     DAYS_IN_POSITION_STATE
 };
 
+enum class CompareMode {
+    ELEMENT,
+    LEXICOGRAPHIC
+};
+
 class ASTNode
 {
 public:
@@ -676,6 +681,7 @@ public:
     string op;
     ExprNode *leftOperand = NULL;
     ExprNode *rightOperand = NULL;
+    CompareMode compareMode = CompareMode::ELEMENT;
 
     BinaryExprNode()
     {
