@@ -1168,8 +1168,8 @@ declaration
                 boolInit = lbool->value;
             }
             else {
-                std::cerr << "Note: initializer for '" << name << "' at line " << yylineno
-                          << " is not a literal; storing default value for now\n";
+                // std::cerr << "Note: initializer for '" << name << "' at line " << yylineno
+                //           << " is not a literal; storing default value for now\n";
             }
         }
 
