@@ -4,9 +4,6 @@
 #include <memory>
 #include <typeinfo>
 
-// ================================================================
-// Helper: Create a fresh Symbol* for a parameter given name & type
-// ================================================================
 Symbol* SemanticVisitor::makeSymbolForType(const std::string &name, DataTypes t)
 {
     switch(t)
@@ -15,7 +12,9 @@ Symbol* SemanticVisitor::makeSymbolForType(const std::string &name, DataTypes t)
         case FLOAT_TYPE:      return new FloatSym(name, 0.0, false, 0, 0);
         case BOOL_TYPE:       return new BoolSym(name, false, false, 0, 0);
         case TIMESERIES_TYPE: return new TimeseriesSym(name, 0, 0, 0);
-        default:              return new Symbol(name, SymKind::Int, 0, 0);
+        default:
+            // DO not auto-declare variables 
+            return nullptr;
     }
 }
 
@@ -57,7 +56,7 @@ bool SemanticVisitor::isNumeric(DataTypes t) const
 
 bool SemanticVisitor::areComparable(DataTypes a, DataTypes b) const
 {
-    return ((a == b) || (isNumeric(a) && isNumeric(b))); // allow int <-> float comparisons     
+    return ((a == b) || (isNumeric(a) && isNumeric(b))); // allow comparisons between int and float     
 }
 
 Symbol *SemanticVisitor::lookup(const std::string &name)
@@ -79,8 +78,6 @@ bool SemanticVisitor::analyze(ProgramNode *root)
     resolved.clear();
 
     // Start with global scope already in symbol table constructor.
-    // (But we make sure to be in global)
-    // symtab.global created in constructor, currentScope points to it.
     visit(*root);
 
     if(!errors.empty())
@@ -95,20 +92,15 @@ bool SemanticVisitor::analyze(ProgramNode *root)
 // Helper to check if a cast between two DataTypes is allowed
 bool SemanticVisitor::isCastable(DataTypes from, DataTypes to)
 {
-    // Same type is always allowed
     if(from == to) return true;
 
-    // Numeric casts: INT <-> FLOAT
     if((from == INT_TYPE || from == FLOAT_TYPE) &&
        (to == INT_TYPE || to == FLOAT_TYPE))
         return true;
 
-    // Boolean casts (only BOOL <-> BOOL)
     if(from == BOOL_TYPE && to == BOOL_TYPE)
         return true;
 
-    // Timeseries and Group types generally cannot be cast
-    // You can extend this if needed
     return false;
 }
 
@@ -121,11 +113,15 @@ DataTypes SemanticVisitor::SymKindToDataType(SymKind k)
         case SymKind::Float: return FLOAT_TYPE;
         case SymKind::Bool: return BOOL_TYPE;
         case SymKind::Timeseries: return TIMESERIES_TYPE;
+        case SymKind::Regime: return RGM_TYPE;
+        case SymKind::Group: return GROUP_TYPE;
         case SymKind::Void: return VOID_TYPE;
         default: return INT_TYPE; // fallback
     }
 }
-// --- Visitors ---------------------------------------------------------------
+
+
+// Visitor functions for different node types
 
 void SemanticVisitor::visit(ProgramNode &node)
 {
@@ -153,6 +149,7 @@ void SemanticVisitor::visit(DeclNode &node)
     }
 
     DataTypes dt = node.type->type;
+    bool isConst = node.type->constFlag;
 
     for(auto initDecl : node.decls)
     {
@@ -164,7 +161,7 @@ void SemanticVisitor::visit(DeclNode &node)
         switch (dt)
         {
             case INT_TYPE:
-                sym = std::make_unique<IntSym>(name, /*value*/ 0, /*isConst*/ node.type->constFlag, 0, 0);
+                sym = std::make_unique<IntSym>(name, 0, node.type->constFlag, 0, 0);
                 break;
             case FLOAT_TYPE:
                 sym = std::make_unique<FloatSym>(name, 0.0, node.type->constFlag, 0, 0);
@@ -173,23 +170,47 @@ void SemanticVisitor::visit(DeclNode &node)
                 sym = std::make_unique<BoolSym>(name, false, node.type->constFlag, 0, 0);
                 break;
             case TIMESERIES_TYPE:
-                // default capacity 0; real capacity can be set by initializer if you want
-                sym = std::make_unique<TimeseriesSym>(name, /*cap*/ 0, 0, 0);
+                if(!initDecl->initializer){
+                    addErrorFmt("Timeseries '%s' must be initialized at declaration", name);
+                    // return;
+                }
+                
+                if(insideIndicator == false){
+                    addErrorFmt("Timeseries '%s' declared outside indicator section", initDecl->declarator->id);
+                    return;
+                }
+                sym = std::make_unique<TimeseriesSym>(name, 0, 0, 0);
                 break;
             case GROUP_TYPE:
                 sym = std::make_unique<GroupSym>(name, 0, 0);
                 break;
             case RGM_TYPE:
+                if(!initDecl->initializer){
+                    addErrorFmt("Regime '%s' must be initialized at declaration", name);
+                    // return;
+                }
+
+                if(insideRegime == false){
+                    addErrorFmt("Regime '%s' declared outside regime section", initDecl->declarator->id);
+                    return;
+                }
                 sym = std::make_unique<RegimeSym>(name, 0, 0);
                 break;
             default:
-                // unknown / void: create generic Symbol
+                // unknown/void: create generic Symbol
                 sym = std::make_unique<Symbol>(name, SymKind::Int, 0, 0);
                 break;
         }
 
+        sym->declared = true;
+
         if(!define(std::move(sym))) addErrorFmt("Redefinition of symbol '%s'", name);
         
+        if(isConst && (!initDecl->initializer || !initDecl->initializer->expr))
+        {
+            addErrorFmt("Const '%s' must be initialized at declaration", name);
+            continue;
+        }
 
         // If initializer exists, analyze it and check type compatibility
         if (initDecl->initializer && initDecl->initializer->expr)
@@ -197,25 +218,40 @@ void SemanticVisitor::visit(DeclNode &node)
             initDecl->initializer->expr->visitAcceptor(*this);
             DataTypes rhs = inferred[initDecl->initializer->expr];
             
-            if(dt == FLOAT_TYPE && rhs == INT_TYPE) {} // ok: implicit promotion (optional to warn)
+            if(dt == FLOAT_TYPE && rhs == INT_TYPE) {} // works: implicit promotion (optional to warn)
+            else if(dt == BOOL_TYPE && rhs == INT_TYPE) {} // works: implicit conversion (optional to warn)
             else if (dt != rhs)
-            {
-                addErrorFmt("Type mismatch in initializer for '%s' (declared %s, initializer %s)", name);
-                std::ostringstream s;
-                s << " declared " << typeToString(dt) << ", initializer " << typeToString(rhs);
-                addError(s.str());
+            {      
+                std::ostringstream ss;
+                ss << "Type mismatch in initializer for " << name << " declared " << typeToString(dt) << ", initializer " << typeToString(rhs);
+                addError(ss.str());
             }
         }
-    }
+
+    }    
 }
 
 void SemanticVisitor::visit(InitDeclarator &node)
 {
-    // Nothing here; handled in DeclNode
+    // Majority of the work handled in DeclNode
+    if (node.initializer)
+        node.initializer->visitAcceptor(*this);
+}
+
+void SemanticVisitor::visit(Initializer &node)
+{
+    for (auto init : node.initializerList)
+        if (init) init->visitAcceptor(*this);
+
+    if (node.expr)
+        node.expr->visitAcceptor(*this);
 }
 
 void SemanticVisitor::visit(CmpdStmtNode &node)
 {
+    if(insideRegime || insideIndicator){
+        addError("Nested scopes are not allowed inside regime or indicator sections");
+    }
     symtab.enterScope();
 
     for(auto d : node.declarations)
@@ -228,41 +264,58 @@ void SemanticVisitor::visit(CmpdStmtNode &node)
     return;
 }
 
+void SemanticVisitor::visit(StmtNode &node)
+{
+    
+    if (auto stmt = dynamic_cast<AssignmentNode*>(&node))
+        stmt->visitAcceptor(*this);
+
+    else if (auto stmt = dynamic_cast<ExprStmtNode*>(&node))
+        stmt->visitAcceptor(*this);
+
+    else if(auto stmt = dynamic_cast<IfNode*>(&node))
+        stmt->visitAcceptor(*this);
+
+    else if(auto stmt = dynamic_cast<WhileNode*>(&node))
+        stmt->visitAcceptor(*this);
+
+    else if(auto stmt = dynamic_cast<ForNode*>(&node))
+        stmt->visitAcceptor(*this);
+
+    else if(auto stmt = dynamic_cast<ReturnNode*>(&node))
+        stmt->visitAcceptor(*this);
+
+    else
+        addError("Unknown stmt type");
+}
+
 void SemanticVisitor::visit(FuncNode &node)
 {
     std::string fname = node.name;
 
-    // Determine return type (fun name(args -> T))
     DataTypes retType = VOID_TYPE;
     if(node.returnType)
         retType = node.returnType->type;
 
-    // Create FunctionSym using its correct constructor
     auto fSym = std::make_unique<FunctionSym>(fname, 0, 0);
 
-    // Store return type symbol
     fSym->returnType = std::unique_ptr<Symbol>(
         makeSymbolForType("__ret", retType)
     );
 
-    // Define function symbol
     if(!define(std::move(fSym)))
     {
         addErrorFmt("Redefinition of function '%s'", fname);
     }
 
-    // Retrieve the stored FunctionSym
     FunctionSym *f = dynamic_cast<FunctionSym*>(lookup(fname));
 
-    // Enter function scope
     symtab.enterScope();
     insideFunction = true;
 
-    // Store current function return type for return checks
     DataTypes savedReturnType = currentFunctionReturnType;
     currentFunctionReturnType = retType;
 
-    // Process parameters
     for(auto p : node.params)
     {
         if(!p) continue;
@@ -270,13 +323,12 @@ void SemanticVisitor::visit(FuncNode &node)
         std::string pname = p->declarator->id;
         DataTypes ptype = p->type ? p->type->type : INT_TYPE;
 
-        // Add to function symbol parameter list
         f->parameters.push_back(
             std::unique_ptr<Symbol>(makeSymbolForType(pname, ptype))
         );
 
-        // Add to local scope
         std::unique_ptr<Symbol> localSym(makeSymbolForType(pname, ptype));
+        localSym->declared = true;
 
         if(!define(std::move(localSym)))
         {
@@ -284,11 +336,9 @@ void SemanticVisitor::visit(FuncNode &node)
         }
     }
 
-    // Visit body
     if(node.body)
         node.body->visitAcceptor(*this);
 
-    // Restore previous function return type
     currentFunctionReturnType = savedReturnType;
 
     insideFunction = false;
@@ -298,15 +348,17 @@ void SemanticVisitor::visit(FuncNode &node)
 void SemanticVisitor::visit(IdentifierNode &node)
 {
     Symbol *s = lookup(node.id);
-    if(!s)
+    if(!s || s->declared == false)
     {
-        addErrorFmt("Undefined identifier '%s'", node.id);
+        addErrorFmt("Undefined identifier '%s'", node.id);  
+        resolved[&node] = nullptr;
+        inferred[&node] = INT_TYPE;
         return;
     }
 
     resolved[&node] = s;
 
-    // Map symbol's kind -> DataTypes for expression inference
+    // Maps symbol's kind to DataTypes for expression inference
     DataTypes inferredType = INT_TYPE;
     switch(s->kind)
     {
@@ -320,20 +372,26 @@ void SemanticVisitor::visit(IdentifierNode &node)
             inferredType = BOOL_TYPE;
             break;
         case SymKind::Timeseries:
+            if(!insideStrategy){
+                addErrorFmt("Timeseries '%s' can only be used inside the strategy", node.id);
+            }
             inferredType = TIMESERIES_TYPE;
             break;
         case SymKind::Group:
             inferredType = GROUP_TYPE;
             break;
         case SymKind::Regime:
+            if(!insideRegime){
+                addErrorFmt("Regime '%s' can only be used in regime section or for scoping", node.id);
+            }
             inferredType = RGM_TYPE;
             break;
         case SymKind::Function:
             inferredType = VOID_TYPE;
             break;
         case SymKind::Array:
-            inferredType = TIMESERIES_TYPE;
-            break; // fallback
+            inferredType = TIMESERIES_TYPE; // fallback
+            break; 
         default:
             inferredType = INT_TYPE;
             break;
@@ -363,49 +421,138 @@ void SemanticVisitor::visit(LiteralBoolNode &node)
 
 void SemanticVisitor::visit(BinaryExprNode &node)
 {
-    if(node.leftOperand) node.leftOperand->visitAcceptor(*this);
-    if(node.rightOperand) node.rightOperand->visitAcceptor(*this);
-
-    DataTypes L = INT_TYPE;
-    DataTypes R = INT_TYPE;
-    if(node.leftOperand && inferred.count(node.leftOperand)) L = inferred[node.leftOperand];
-    if(node.rightOperand && inferred.count(node.rightOperand)) R = inferred[node.rightOperand];
+    if (node.leftOperand)
+        node.leftOperand->visitAcceptor(*this);
+    if (node.rightOperand)
+        node.rightOperand->visitAcceptor(*this);
 
     const std::string &op = node.op;
 
-    // Arithmetic
-    if(op == "+" || op == "-" || op == "*" || op == "/")
+    if (op == "=")
     {
-        if(!isNumeric(L) || !isNumeric(R))
+        auto id = dynamic_cast<IdentifierNode*>(node.leftOperand);
+        if (!id)
+        {
+            addError("Left-hand side of assignment is not assignable");
+            inferred[&node] = INT_TYPE;
+            return;
+        }
+
+        Symbol *s = lookup(id->id);
+        if(!s)
+        {
+            inferred[&node] = INT_TYPE;
+            return; 
+        }
+
+        DataTypes lhs = SymKindToDataType(s->kind);
+        DataTypes rhs = INT_TYPE;
+        
+        if(node.rightOperand && inferred.count(node.rightOperand))
+            rhs = inferred[node.rightOperand];
+
+        // Const checks
+        if(s->kind == SymKind::Int)
+        {
+            IntSym *is = dynamic_cast<IntSym *>(s);
+            if(is && is->isConst)
+                addErrorFmt("Cannot assign to const '%s'", id->id);
+        }
+        else if(s->kind == SymKind::Float)
+        {
+            FloatSym *fs = dynamic_cast<FloatSym *>(s);
+            if(fs && fs->isConst)
+                addErrorFmt("Cannot assign to const '%s'", id->id);
+        }
+        else if(s->kind == SymKind::Bool)
+        {
+            BoolSym *bs = dynamic_cast<BoolSym *>(s);
+            if(bs && bs->isConst)
+                addErrorFmt("Cannot assign to const '%s'", id->id);
+        }
+        else if(s->kind == SymKind::Timeseries)
+        {
+            addErrorFmt("Timeseries '%s' cannot be assigned after declaration", id->id);
+        }
+
+        // Type mismatch check
+        if(lhs != rhs)
+        {
+            std::ostringstream ss;
+            ss << "Type mismatch in assignment (lhs " << typeToString(lhs)
+               << ", rhs " << typeToString(rhs) << ")";
+            addError(ss.str());
+        }
+
+        inferred[&node] = lhs;
+        return;
+    }
+
+    DataTypes L = INT_TYPE;
+    DataTypes R = INT_TYPE;
+    if (node.leftOperand && inferred.count(node.leftOperand))
+        L = inferred[node.leftOperand];
+    if (node.rightOperand && inferred.count(node.rightOperand))
+        R = inferred[node.rightOperand];
+
+    if (L == TIMESERIES_TYPE || R == TIMESERIES_TYPE)
+    {
+        // Arithmetic returns a new TimeSeries
+        if (op == "+" || op == "-" || op == "*" || op == "/")
+        {
+            inferred[&node] = TIMESERIES_TYPE;
+            return;
+        }
+
+        // Comparisons return a Regime
+        if (op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=")
+        {
+            inferred[&node] = RGM_TYPE;
+            return;
+        }
+
+        // Logic (AND/OR) returns a Regime
+        if (op == "&&" || op == "||" || op == "AND" || op == "OR")
+        {
+            inferred[&node] = RGM_TYPE;
+            return;
+        }
+    }
+
+    if (op == "+" || op == "-" || op == "*" || op == "/")
+    {
+        if (!isNumeric(L) || !isNumeric(R))
         {
             addErrorFmt("Arithmetic operator applied to non-numeric operands ('%s')", op);
             inferred[&node] = INT_TYPE;
             return;
         }
-
         inferred[&node] = (L == FLOAT_TYPE || R == FLOAT_TYPE) ? FLOAT_TYPE : INT_TYPE;
         return;
     }
 
-    // Comparison
-    if(op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=")
+    if (op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=")
     {
-        if(!areComparable(L, R)) addErrorFmt("Comparison between incompatible types ('%s')", op);
-
+        if (!areComparable(L, R))
+            addErrorFmt("Comparison between incompatible types ('%s')", op);
         inferred[&node] = BOOL_TYPE;
         return;
     }
 
-    // Logical
-    if(op == "&&" || op == "||")
+    if (op == "&&" || op == "||" || op == "AND" || op == "OR")
     {
-        if(L != BOOL_TYPE || R != BOOL_TYPE) addErrorFmt("Logical operator '%s' requires boolean operands", op);
+        if (L == RGM_TYPE || R == RGM_TYPE)
+        {
+            inferred[&node] = RGM_TYPE;
+            return;
+        }
 
+        if (L != BOOL_TYPE || R != BOOL_TYPE)
+            addErrorFmt("Logical operator '%s' requires boolean operands", op);
         inferred[&node] = BOOL_TYPE;
         return;
     }
 
-    // Fallback
     inferred[&node] = INT_TYPE;
     return;
 }
@@ -435,66 +582,83 @@ void SemanticVisitor::visit(UnaryExprNode &node)
 
 void SemanticVisitor::visit(AssignmentNode &node)
 {
+
     if(node.target) node.target->visitAcceptor(*this);
     if(node.value) node.value->visitAcceptor(*this);
 
-    DataTypes lhs = INT_TYPE, rhs = INT_TYPE;
-    if(auto id = dynamic_cast<IdentifierNode*> (node.target))
+    auto id = dynamic_cast<IdentifierNode*>(node.target);
+    if(!id)
     {
-        if(resolved.count(id))
-        {
-            Symbol *s = resolved[id];
-            
-            // check const for Int/Float/Bool
-            if(s->kind == SymKind::Int)
-            {
-                IntSym *is = dynamic_cast<IntSym *>(s);
-                if(is && is->isConst) addErrorFmt("Cannot assign to const '%s'", id->id);
-            }
-
-            else if(s->kind == SymKind::Float)
-            {
-                FloatSym *fs = dynamic_cast<FloatSym *>(s);
-                if (fs && fs->isConst) addErrorFmt("Cannot assign to const '%s'", id->id);
-            }
-
-            else if (s->kind == SymKind::Bool)
-            {
-                BoolSym *bs = dynamic_cast<BoolSym *>(s);
-                if(bs && bs->isConst) addErrorFmt("Cannot assign to const '%s'", id->id);
-            }
-
-            // get lhs type from symbol kind
-            if(s->kind == SymKind::Int) lhs = INT_TYPE;
-            else if(s->kind == SymKind::Float) lhs = FLOAT_TYPE;
-            else if(s->kind == SymKind::Bool) lhs = BOOL_TYPE;
-            else if(s->kind == SymKind::Timeseries) lhs = TIMESERIES_TYPE;
-        }
+        addError("Left-hand side of assignment is not assignable");
+        return;
     }
 
-    // non-identifier target: try to infer
-    else if(node.target && inferred.count(node.target)) lhs = inferred[node.target];
-
-    if(node.value && inferred.count(node.value)) rhs = inferred[node.value];
-
-    if (lhs != rhs)
+    if(!resolved.count(id) || resolved[id] == nullptr)
     {
-        addErrorFmt("Type mismatch in assignment (lhs %s, rhs %s)", typeToString(lhs));
+        return;
+    }
 
-        // append rhs info
+    Symbol *s = resolved[id];
+
+    DataTypes lhs;
+    switch(s->kind)
+    {
+        case SymKind::Int:       
+            if(dynamic_cast<IntSym*>(s)->isConst){
+                addErrorFmt("Cannot assign to const '%s'", id->id);
+            }
+            lhs = INT_TYPE; 
+            break;
+        case SymKind::Float:     
+            if(dynamic_cast<FloatSym*>(s)->isConst){
+                addErrorFmt("Cannot assign to const '%s'", id->id);
+            }
+            lhs = FLOAT_TYPE;  
+            break;
+        case SymKind::Bool:      
+            if(dynamic_cast<BoolSym*>(s)->isConst){
+                addErrorFmt("Cannot assign to const '%s'", id->id);
+            }
+            lhs = BOOL_TYPE; 
+            break;
+        case SymKind::Timeseries:
+            addErrorFmt("Timeseries '%s' cannot be assigned after declaration, It is immutable", id->id);
+            inferred[&node] = TIMESERIES_TYPE;
+            return;
+        case SymKind::Regime:
+            addErrorFmt("Regime '%s' cannot be assigned after declaration, It is immutable", id->id);
+            inferred[&node] = RGM_TYPE;
+            return;
+        case SymKind::Array:
+            if(dynamic_cast<BoolSym*>(s)->isConst){
+                addErrorFmt("Array '%s' cannot be assigned after declaration, It is immutable", id->id);
+            }
+            inferred[&node] = INT_TYPE;
+            return;
+        default:
+            lhs = INT_TYPE; 
+            break;
+    }
+
+    DataTypes rhs = INT_TYPE;
+    if(node.value && inferred.count(node.value))
+        rhs = inferred[node.value];
+
+    if(lhs == BOOL_TYPE && rhs == INT_TYPE) {} // implicit conversion
+    else if(lhs != rhs)
+    {
         std::ostringstream ss;
-        ss << " rhs " << typeToString(rhs);
+        ss << "Type mismatch in assignment (lhs " << typeToString(lhs)
+           << ", rhs " << typeToString(rhs) << ")";
         addError(ss.str());
     }
 
-    // assignment expr yields LHS type
     inferred[&node] = lhs;
     return;
 }
 
 void SemanticVisitor::visit(CallNode &node)
 {
-    // Step 1: Ensure callee is an identifier
     IdentifierNode *id = dynamic_cast<IdentifierNode*>(node.callee);
     if(!id)
     {
@@ -503,7 +667,6 @@ void SemanticVisitor::visit(CallNode &node)
         return;
     }
 
-    // Step 2: Lookup the function symbol
     Symbol *s = lookup(id->id);
     if(!s)
     {
@@ -512,7 +675,6 @@ void SemanticVisitor::visit(CallNode &node)
         return;
     }
 
-    // Step 3: Ensure it’s a function
     if(s->kind != SymKind::Function)
     {
         addErrorFmt("Symbol '%s' is not callable", id->id.c_str());
@@ -528,11 +690,10 @@ void SemanticVisitor::visit(CallNode &node)
         return;
     }
 
-    // Step 4: Visit argument expressions
     for(auto &a : node.arguments)
         if(a) a->visitAcceptor(*this);
 
-    // Step 5: Check argument count
+    // Check argument count
     if(node.arguments.size() != fSym->parameters.size())
     {
         std::ostringstream argStream;
@@ -540,7 +701,7 @@ void SemanticVisitor::visit(CallNode &node)
         addErrorFmt("Function '" + id->id + "' expects " + argStream.str(), "");
     }
 
-    // Step 6: Check argument types
+    // Check argument types
     size_t n = std::min(node.arguments.size(), fSym->parameters.size());
     for(size_t i=0; i<n; ++i)
     {
@@ -552,7 +713,7 @@ void SemanticVisitor::visit(CallNode &node)
         DataTypes argType = inferred.count(argExpr) ? inferred[argExpr] : INT_TYPE;
         DataTypes paramType = SymKindToDataType(paramSym->kind); // helper function
 
-        // Allow int -> float promotion
+        // Allow int to float promotion
         if(argType == INT_TYPE && paramType == FLOAT_TYPE) continue;
 
         if(argType != paramType)
@@ -563,7 +724,6 @@ void SemanticVisitor::visit(CallNode &node)
         }
     }
 
-    // Step 7: Set inferred type of the call node to function return type
     if(fSym->returnType) inferred[&node] = SymKindToDataType(fSym->returnType->kind);
     else inferred[&node] = VOID_TYPE;
 
@@ -571,7 +731,10 @@ void SemanticVisitor::visit(CallNode &node)
 }
 
 void SemanticVisitor::visit(IfNode &node)
-{
+{   
+    if(insideRegime || insideIndicator){
+        addError("If statements are not allowed inside regime or indicator sections");
+    }
     if(node.condition) node.condition->visitAcceptor(*this);
     if(node.condition && inferred.count(node.condition) && (inferred[node.condition] != BOOL_TYPE)) addError("If condition is not boolean");
     if(node.thenBranch) node.thenBranch->visitAcceptor(*this);
@@ -581,7 +744,10 @@ void SemanticVisitor::visit(IfNode &node)
 }
 
 void SemanticVisitor::visit(WhileNode &node)
-{
+{   
+    if(insideRegime || insideIndicator){
+        addError("While loops are not allowed inside regime or indicator sections");
+    }
     if(node.condition) node.condition->visitAcceptor(*this);
     if(node.condition && inferred.count(node.condition) && inferred[node.condition] != BOOL_TYPE) addError("While condition is not boolean");
     if(node.body) node.body->visitAcceptor(*this);
@@ -591,6 +757,9 @@ void SemanticVisitor::visit(WhileNode &node)
 
 void SemanticVisitor::visit(ForNode &node)
 {
+    if(insideRegime || insideIndicator){
+        addError("For loops are not allowed inside regime or indicator sections");
+    }
     if(node.init) node.init->visitAcceptor(*this);
     if(node.condition) node.condition->visitAcceptor(*this);
     if(node.condition && inferred.count(node.condition) && inferred[node.condition] != BOOL_TYPE) addError("For loop condition is not boolean");
@@ -601,7 +770,11 @@ void SemanticVisitor::visit(ForNode &node)
 }
 
 void SemanticVisitor::visit(ReturnNode &node)
-{
+{   
+    if(insideRegime || insideIndicator){
+        addError("Return is not allowed inside regime or indicator sections");
+        return;
+    }
     if(node.expr)
     {
         node.expr->visitAcceptor(*this);
@@ -609,35 +782,160 @@ void SemanticVisitor::visit(ReturnNode &node)
 
         if(exprType != currentFunctionReturnType)
         {
-            // Allow int -> float promotion if you want
             if(!(exprType == INT_TYPE && currentFunctionReturnType == FLOAT_TYPE))
                 addError("Return type mismatch in function");
         }
     }
     else
     {
-        // Return with no expression
         if(currentFunctionReturnType != VOID_TYPE)
             addError("Return type mismatch: expected non-void");
     }
 }
 
+void SemanticVisitor::visit(StrategyNode &node)
+{
+    Symbol *stratSym = lookup(node.id);
+    insideStrategy = true;
+    symtab.enterScope();
+
+    if (node.declarations)
+    {
+        node.declarations->visitAcceptor(*this);
+
+        if (node.declarations->positionSize <= 0)
+        {
+            addError("Strategy position_shares (p_size) must be greater than 0");
+        }
+    }
+
+    if (node.indicators)
+    {
+        node.indicators->visitAcceptor(*this);
+    }
+
+    if (node.regimes)
+    {
+        node.regimes->visitAcceptor(*this);
+    }
+
+    if (node.signals)
+    {
+        node.signals->visitAcceptor(*this);
+    }
+
+    symtab.exitScope();
+    insideStrategy = false;
+}
+
+void SemanticVisitor::visit(StratDeclNode &node)
+{
+    return;
+}
+
+void SemanticVisitor::visit(IndicatorNode &node)
+{
+    insideIndicator = true;
+
+    if (node.body)
+    {
+        for (auto d : node.body->declarations)
+            if (d)
+                d->visitAcceptor(*this);
+
+        for (auto s : node.body->statements)
+            if (s)
+                s->visitAcceptor(*this);
+    }
+
+    insideIndicator = false;
+}
+
+void SemanticVisitor::visit(RegimeNode &node)
+{   
+    insideRegime = true;
+
+    if (node.body)
+    {
+        for (auto d : node.body->declarations)
+            if (d)
+                d->visitAcceptor(*this);
+
+        for (auto s : node.body->statements)
+            if (s)
+                s->visitAcceptor(*this);
+    }
+
+    insideRegime = false;
+}
+
+void SemanticVisitor::visit(SignalFuncNode &node)
+{
+    insideSignalFunc = true;
+
+    if (node.body)
+    {
+        for (auto s : node.body->declarations)
+            if (s)
+                s->visitAcceptor(*this);
+
+        for (auto s : node.body->statements)
+            if (s)
+                s->visitAcceptor(*this);
+
+        // The last statement must be an expression
+        if (!node.body->statements.empty())
+        {
+            auto lastStmt = node.body->statements.back();
+            auto exprStmt = dynamic_cast<ExprStmtNode*>(lastStmt);
+            if (!exprStmt)
+            {
+                addError("Signal function must end in a boolean expression statement");
+            }
+            else if (exprStmt->expr)
+            {
+                ExprNode* expr = exprStmt->expr;
+                DataTypes t = inferred[expr];
+
+                if (t != BOOL_TYPE && t!= RGM_TYPE)
+                {
+                    addError("Signal function must evaluate to bool");
+                }
+            }
+        }
+        else
+        {
+            addError("Signal function is empty");
+        }
+    }
+
+    insideSignalFunc = false;
+}
+
+
+void SemanticVisitor::visit(SignalFuncListNode &node)
+{
+    for (auto sig : node.signals)
+    {
+        if (sig)
+            sig->visitAcceptor(*this);
+    }
+}
 
 void SemanticVisitor::visit(TimeseriesNode &node)
 {
-    if(!insideIndicator) addError("Timeseries function used outside an indicator block");
-    
-    // Visit args
-    for(auto &a : node.args)
-        if(a) a->visitAcceptor(*this);
+    for (auto &a : node.args)
+    {
+        if (a)
+            a->visitAcceptor(*this);
+    }
 
+    bool valid = true;
     inferred[&node] = TIMESERIES_TYPE;
-    return;
 }
 
 void SemanticVisitor::visit(PortfolioStateNode &node)
 {
-    // Portfolio state queries yield numeric values (we assume float)
     inferred[&node] = FLOAT_TYPE;
     return;
 }
@@ -679,27 +977,95 @@ void SemanticVisitor::visit(MemberAccessNode &node)
 
 void SemanticVisitor::visit(ArrayAccessNode &node)
 {
-    if(node.array) node.array->visitAcceptor(*this);
-    if(node.index) node.index->visitAcceptor(*this);
-    if(node.index && inferred.count(node.index) && inferred[node.index] != INT_TYPE) addError("Array index is not integer");
 
-    // If array resolves to ArraySym, infer element type if possible
-    if(auto id = dynamic_cast<IdentifierNode*>(node.array))
+    if (node.array)
+        node.array->visitAcceptor(*this);
+    if (node.index)
+        node.index->visitAcceptor(*this);
+
+    if (node.index && inferred.count(node.index) &&
+        inferred[node.index] != INT_TYPE)
     {
-        Symbol *s = lookup(id->id);
-        if(s->kind != SymKind::Array)
+        addError("Array/Timeseries index is not integer");
+    }
+
+    auto id = dynamic_cast<IdentifierNode*>(node.array);
+    if (!id)
+    {
+        addError("Indexing non-identifier expression");
+        inferred[&node] = INT_TYPE;
+        return;
+    }
+
+    Symbol *s = lookup(id->id);
+    if (!s)
+    {
+        addErrorFmt("Undefined identifier '%s' in index access", id->id);
+        inferred[&node] = INT_TYPE;
+        return;
+    }
+
+    int constIndex = 0;
+    bool indexIsConst = false;
+
+    if (auto lit = dynamic_cast<LiteralIntNode*>(node.index))
+    {
+        constIndex = lit->value;
+        indexIsConst = true;
+    }
+
+    if (s->kind == SymKind::Timeseries)
+    {
+        TimeseriesSym *ts = dynamic_cast<TimeseriesSym*>(s);
+        inferred[&node] = FLOAT_TYPE;
+
+        if (indexIsConst && ts)
         {
-            addErrorFmt("'%s' is not an array", id->id);
+            if (ts->capacity <= 0)
+            {
+                // addErrorFmt("Timeseries '%s' has unspecified capacity — cannot statically verify index", id->id);
+            }
+            else if (constIndex < 0 || constIndex >= ts->capacity)
+            {
+                addErrorFmt("Timeseries '%s' index %s out of bounds", id->id);
+            }
+        }
+        return;
+    }
+
+    if (s->kind == SymKind::Array)
+    {   
+        auto arr = dynamic_cast<ArraySym*>(s);
+        if (!arr)
+        {
+            addErrorFmt("Internal error: '%s' is Array kind but cast to ArraySym failed", id->id);
             inferred[&node] = INT_TYPE;
             return;
         }
+        int size = 0;
 
-        auto arr = dynamic_cast<ArraySym*>(s);
+        if (!arr->dimensions.empty())
+            size = arr->dimensions[0];
+        else
+            size = (int)arr->elements.size();
+
+        if (indexIsConst)
+        {
+            if (size <= 0)
+            {
+                addErrorFmt("Array '%s' size unknown — cannot check bounds", id->id);
+            }
+            else if (constIndex < 0 || constIndex >= size)
+            {
+                addErrorFmt("Array '%s' index %s out of bounds", id->id);
+            }
+        }
+
         inferred[&node] = arr->baseType;
         return;
     }
 
-    // fallback
+    addErrorFmt("'%s' does not support indexing", id->id);
     inferred[&node] = INT_TYPE;
     return;
 }
@@ -733,7 +1099,6 @@ void SemanticVisitor::visit(ConditionalExprNode &node)
 
 void SemanticVisitor::visit(CastExprNode &node)
 {
-    // First, visit the expression being cast
     if(node.expr) node.expr->visitAcceptor(*this);
 
     // Determine the type of the expression
@@ -781,4 +1146,10 @@ void SemanticVisitor::printErrors() const
 
     cout << "Semantic Errors (" << errors.size() << "):\n";
     for(const auto &e : errors) cout << "- " << e << "\n";
+}
+
+void SemanticVisitor::visit(ExprStmtNode &node)
+{
+    if (node.expr)
+        node.expr->visitAcceptor(*this);
 }
