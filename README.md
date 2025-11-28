@@ -1,3 +1,6 @@
+# Note
+This version patches issues in the semantic analyzer of the compiler providing better support for handling immutability, out of scope declarations, and better type checking. It runs the semantic analyzer fully on the strategy section now.
+
 # Project Overview
 
 This project implements the core components of a compiler pipeline, including lexical analysis, parsing, semantic analysis, and code generation. The objective is to design a robust and modular system that translates source input into an optimized target representation. 
