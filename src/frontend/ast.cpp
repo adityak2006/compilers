@@ -2,6 +2,7 @@
 
 void ASTNode::visitAcceptor(ASTVisitor &visitor)
 {
+    visitor.visit(*this);
 }
 
 void ASTVisitor::visit(StmtNode &) {}
