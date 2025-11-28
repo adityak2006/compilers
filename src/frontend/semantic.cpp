@@ -474,7 +474,11 @@ void SemanticVisitor::visit(BinaryExprNode &node)
         {
             addErrorFmt("Timeseries '%s' cannot be assigned after declaration", id->id);
         }
-
+        else if(s->kind == SymKind::Regime)
+        {
+            addErrorFmt("Regime '%s' cannot be assigned after declaration", id->id);
+        }
+        
         // Type mismatch check
         if(lhs != rhs)
         {
