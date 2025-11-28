@@ -32,7 +32,7 @@ struct Symbol
     const std::string name;
     const SymKind kind;
     Location loc;
-
+    bool declared = false;
     Symbol(std::string n, SymKind k, int row, int col)
         : name(std::move(n)), kind(k), loc(row, col) {}
     virtual ~Symbol() = default;
@@ -206,9 +206,6 @@ struct ArraySym : Symbol
 
     size_t size() const { return elements.size(); }
 
-    // recursively build the nested array structure
-    // dimIdx: current dimension (0 .. dimensions.size()-1)
-    // prefix: name prefix (used to make element names like "arr[0][1]")
     void build_recursive(size_t dimIdx, const std::string &prefix)
     {
         if (dimIdx >= dimensions.size())
@@ -217,7 +214,6 @@ struct ArraySym : Symbol
         int dim = dimensions[dimIdx];
         for (int i = 0; i < dim; ++i)
         {
-            // build element name like "[0]" or "[0][1]" (you can change to parentName+..)
             std::string elemName = prefix.empty() ? ("[" + std::to_string(i) + "]")
                                                   : (prefix + "[" + std::to_string(i) + "]");
 
@@ -244,13 +240,11 @@ struct ArraySym : Symbol
             }
             else
             {
-                // nested array: create a child ArraySym for remaining dimensions
                 std::vector<int> subdims(dimensions.begin() + dimIdx + 1, dimensions.end());
-                // child name kept as elemName so nested elements can see the index in name
                 auto child = std::make_unique<ArraySym>(elemName, subdims, baseType, isConstArray, def_row, def_col);
                 push_array(std::move(child));
             }
-        } // for indices
+        }
     }
 };
 
