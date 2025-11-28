@@ -21,8 +21,10 @@ private:
     bool insideIndicator = false;
     bool insideStrategy = false;
     bool insideFunction = false;
+    bool insideRegime = false;
+    bool insideSignalFunc = false;
 
-    // Inferred types & resolutions (we don't modify AST)
+    // Inferred types & resolutions
     std::unordered_map<ExprNode*, DataTypes> inferred;
     std::unordered_map<IdentifierNode*, Symbol*> resolved;
 
@@ -34,11 +36,12 @@ private:
     bool isNumeric(DataTypes t) const;
     bool areComparable(DataTypes a, DataTypes b) const;
     DataTypes SymKindToDataType(SymKind k);
-    // Scope helpers (wrapper to symbol table)
     Symbol* lookup(const std::string &name);
     bool define(std::unique_ptr<Symbol> sym);
     bool isCastable(DataTypes from, DataTypes to);
-    // Visit overrides (only those needed — add more if you want)
+    bool checkTSArgs(TimeseriesNode &node, const std::string &funcName, const std::vector<DataTypes> &expectedTypes);
+    
+    // Visit overrides (only those needed)
     void visit(ProgramNode &node) override;
     void visit(DeclNode &node) override;
     void visit(InitDeclarator &node) override;
@@ -56,6 +59,14 @@ private:
     void visit(WhileNode &node) override;
     void visit(ForNode &node) override;
     void visit(ReturnNode &node) override;
+    void visit(StrategyNode &node) override;
+    void visit(StratDeclNode &node) override;
+    void visit(IndicatorNode &node) override;
+    void visit(RegimeNode &node) override;
+    void visit(SignalFuncNode &node) override;
+    void visit(Initializer &node) override;
+    void visit(StmtNode &node) override;
+    void visit(SignalFuncListNode &node) override;
     void visit(TimeseriesNode &node) override;
     void visit(PortfolioStateNode &node) override;
     void visit(MemberAccessNode &node) override;
@@ -63,6 +74,7 @@ private:
     void visit(ConditionalExprNode &node) override;
     void visit(CastExprNode &node) override;
     void visit(CommaExprNode &node) override;
+    void visit(ExprStmtNode &node) override;
 
-    DataTypes currentFunctionReturnType = VOID_TYPE; // tracks current function's return type
+    DataTypes currentFunctionReturnType = VOID_TYPE; 
 };
