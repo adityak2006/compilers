@@ -166,6 +166,8 @@ class ASTNode
 {
 public:
     ASTNodeType nodeType;
+    int line = 0;
+    int col = 0;
     ASTNode() : nodeType(ASTNodeType::ASTNode) {}
 
     virtual void printNode()
@@ -237,7 +239,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         StmtNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -266,7 +268,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         CmpdStmtNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -290,7 +292,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         TypeNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -313,7 +315,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ParamNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -336,7 +338,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         Declarator currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -358,7 +360,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         Initializer currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -380,7 +382,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         InitDeclarator currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -402,7 +404,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         DeclNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -423,7 +425,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ExprStmtNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -443,7 +445,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ReturnNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -462,7 +464,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         BreakNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -481,7 +483,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ContinueNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -504,7 +506,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         IfNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -526,7 +528,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         WhileNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -550,7 +552,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ForNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -570,7 +572,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         CmpdStmtAsStmtNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -589,7 +591,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ExprNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -609,7 +611,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         LiteralIntNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -629,7 +631,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         LiteralFloatNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -649,7 +651,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         LiteralBoolNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -671,7 +673,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         IdentifierNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -695,7 +697,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         BinaryExprNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -726,7 +728,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         UnaryExprNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -748,7 +750,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         AssignmentNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -770,7 +772,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         CallNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -792,7 +794,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         MemberAccessNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -814,7 +816,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ArrayAccessNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -837,7 +839,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         ConditionalExprNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -859,7 +861,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         TimeseriesNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -880,7 +882,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         PortfolioStateNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -902,7 +904,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         CastExprNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -923,7 +925,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         CommaExprNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -947,7 +949,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         FuncNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -970,7 +972,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         GroupDeclarator currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -992,7 +994,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         GroupDeclaration currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1015,7 +1017,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         GroupNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1038,7 +1040,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         StratDeclNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1059,7 +1061,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         IndicatorNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1080,7 +1082,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         RegimeNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1103,7 +1105,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         SignalFuncNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1128,7 +1130,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         SignalFuncListNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1173,7 +1175,7 @@ public:
     void visitAcceptor(ASTVisitor &visitor)
     {
         StrategyNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
 
@@ -1215,6 +1217,6 @@ public:
     void visitAcceptor(ASTVisitor &visitor) override
     {
         ProgramNode currObj = *this;
-        visitor.visit(currObj);
+        visitor.visit(*this);
     }
 };
