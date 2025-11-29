@@ -1,0 +1,54 @@
+strategy MovingAverageCrossover 
+{
+    symbol = "AAPL";
+    timeframe = {0,0,1};
+    p_size = 200;
+
+    indicators
+    {
+        timeseries fast_ma = SMA(close, 10);
+        timeseries slow_ma = SMA(close, 20);
+        timeseries rsi_value = RSI(close, 14);
+        timeseries volume_avg = SMA(volume, 15);
+        timeseries atr14 = ATR(high, low, close, 14);
+    }
+
+    regimes 
+    {
+        rgm trending = atr14 > SMA(atr14, 20) * 1.5;
+        rgm ranging = atr14 <= SMA(atr14, 20) * 1.5;
+    }
+
+    trending::entry_long {
+        atr14 = ATR(high, low, close, 24);
+        fast_ma > slow_ma AND
+        rsi_value > 40 AND
+        rsi_value < 75 &&
+        volume > volume_avg;
+    }
+
+    trending::entry_short {
+        atr14 = ATR(high, low, close, 24);
+        fast_ma < slow_ma AND
+        rsi_value > 25 AND
+        rsi_value < 60 AND
+        volume > volume_avg;
+    }
+
+    exit_long {
+        ranging = atr14 <= SMA(atr14, 20) * 1.5;
+        fast_ma < slow_ma OR
+        rsi_value > 80 OR
+        rsi_value < 25 OR
+        entry_price > 12.0 OR
+        close > 6.0;
+    }
+
+    exit_short {
+        fast_ma > slow_ma OR
+        rsi_value < 20 OR
+        rsi_value > 75 OR
+        entry_price > 10.0 OR
+        close > 5.0;
+    }
+}
